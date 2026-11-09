@@ -308,3 +308,6 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 }
 @media (prefers-reduced-motion: reduce) { .invite i, .tag.flash { animation: none; } }
 @media (max-width: 620px) { .tag[data-room] strong { font-size: 1.05em; } .tag.top::before { display: none; } }
+.tag[data-part=bat], .tag.on[data-part=bat] { background: #0f7a58; color: #fff; border-left-color: #0a5740; }
+.tag[data-part=bat] span { color: #dcfbef; font-weight: 600; }
+.tag.on[data-part=bat] { box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(30,64,110,.3); }

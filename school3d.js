@@ -312,6 +312,7 @@ export function createSchool3D(host, tagsHost, api) {
     el.className = 'tag'; el.style.setProperty('--c', p.color);
     el.innerHTML = '<span></span><strong></strong>';
     if (ROOMS.some((r) => r.id === id)) el.dataset.room = id;
+    el.dataset.part = id;
     const pickTag = () => { if (labOn) return; holdUser(); applySelection(id); };
     el.addEventListener('pointerenter', pickTag);
     el.addEventListener('click', pickTag);
