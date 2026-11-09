@@ -7,7 +7,7 @@
   <meta name="description" content="Demo interaktivnega energetskega portala za šolsko avlo: sončna elektrarna, baterijski hranilnik in optimizacija porabe.">
   <meta name="theme-color" content="#b9e4ff">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c98500'/><path d='M18 4 9 18h6l-1 10 9-14h-6z' fill='%230d0d0d'/></svg>">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -32,41 +32,13 @@
 
   <main>
     <section id="view-now" class="view" role="tabpanel" aria-labelledby="tab-now">
-      <div id="stage3d"><div id="tags"></div><p id="stage-error" hidden>3D modela ni bilo mogoče naložiti. Podatki spodaj delujejo naprej.</p></div>
-      <div class="stage">
-        <div class="col-left">
-          <div class="card">
-            <p class="eyebrow">Ta trenutek</p>
-            <p class="big-share"><strong id="share">–</strong><span>porabe pokriva lastna energija</span></p>
-            <p class="sentence" id="sentence"></p>
-          </div>
-          <div class="card">
-            <h2>Danes do te ure</h2>
-            <div class="rings" id="rings"></div>
-          </div>
-          <div class="card chart-card">
-            <h2>Od kod je energija?</h2>
-            <div id="chart-now" class="chart"></div>
-            <div class="legend" id="legend-now"></div>
-          </div>
+      <div id="stage3d"><div id="tags"></div><p id="stage-error" hidden>3D modela ni bilo mogoče naložiti.</p></div>
+      <div class="stage" id="stage-free">
+        <p class="own-pill"><strong id="share">–</strong><span>lastne energije</span></p>
+        <div class="dock-wrap">
+          <div id="machine-pop" hidden></div>
+          <div id="dock" role="group" aria-label="Naprave v izbranem delu šole"></div>
         </div>
-        <div class="stage-mid" id="stage-free">
-          <p class="stage-hint">Povlecite za vrtenje · s kazalcem izberite del šole</p>
-        </div>
-        <aside class="col-right card" id="part-card">
-          <p class="eyebrow">Izbrano</p>
-          <h2 id="part-name">–</h2>
-          <p class="part-value"><strong id="part-value">–</strong><span id="part-sub"></span></p>
-          <p class="part-text" id="part-text"></p>
-          <ul id="part-list" hidden></ul>
-          <h3 id="part-chart-title"></h3>
-          <div id="part-chart" class="chart"></div>
-          <h3 id="part-bars-title"></h3>
-          <div id="part-bars" class="chart"></div>
-          <p class="hint" id="part-note" hidden>Razdelitev po prostorih je ocena.</p>
-          <h3>Izberite del šole</h3>
-          <div class="chips part-chips" id="part-chips" role="group" aria-label="Izberi del šole"></div>
-        </aside>
       </div>
     </section>
 
@@ -86,6 +58,36 @@
             <button data-time="64">16:00</button>
             <button data-time="80">20:00</button>
           </div>
+        </div>
+      </div>
+      <div class="graphs">
+        <div class="card">
+          <h2>Danes do te ure</h2>
+          <p class="sentence" id="sentence"></p>
+          <div class="rings" id="rings"></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head"><h2>Od kod je prišla energija?</h2><div class="legend" id="legend-now"></div></div>
+          <div id="chart-now" class="chart"></div>
+          <p class="hint">Ploskve kažejo porabo po virih. Prostor pod rumeno črto nad njimi je neporabljeno sonce.</p>
+        </div>
+        <div class="card" id="part-card">
+          <div class="chips part-chips" id="part-chips" role="group" aria-label="Izberi del šole"></div>
+          <h2 id="part-name">–</h2>
+          <p class="part-value"><strong id="part-value">–</strong><span id="part-sub"></span></p>
+          <p class="part-text" id="part-text"></p>
+          <ul id="part-list" hidden></ul>
+          <p class="hint" id="part-note" hidden>Razdelitev po prostorih in napravah je ocena.</p>
+        </div>
+        <div class="card">
+          <h3 id="part-chart-title"></h3>
+          <div id="part-chart" class="chart"></div>
+          <h3 id="part-bars-title"></h3>
+          <div id="part-bars" class="chart"></div>
+        </div>
+        <div class="card machines-card">
+          <h2>Naprave</h2>
+          <div id="machines"></div>
         </div>
       </div>
     </section>
@@ -153,11 +155,11 @@
     <button id="play" aria-label="Ustavi potek dneva">❚❚</button>
     <output id="clock">10:00</output>
     <input id="scrub" type="range" min="0" max="95" step="1" value="40" aria-label="Čas dneva">
-    <span class="player-note">Simuliran sončen spomladanski šolski dan · 100 kWp · 100 kWh</span>
   </footer>
   <div id="tip" role="status" hidden></div>
 
-  <script src="data.js?v=3"></script>
-  <script src="app.js?v=4"></script>
+  <script src="data.js?v=5"></script>
+  <script src="icons.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

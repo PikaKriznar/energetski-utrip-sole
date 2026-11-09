@@ -181,7 +181,7 @@
   }
 
   // ---- Live views ------------------------------------------------------
-  let scene = { update() {}, select() {}, setActive() {}, resize() {} };
+  let scene = { update() {}, select() {}, setActive() {}, resize() {}, hold() {} };
   const flowExplore = createFlow($('#flow-explore'), true);
   let nowChart = null;
 
@@ -226,16 +226,16 @@
 
   // ---- Selected part of the school -------------------------------------
   const PARTS = [
-    { id: 'school', name: 'Cela šola', color: '#2a78d6', text: 'Skupna poraba vseh prostorov in kuhinje.' },
-    { id: 'pv', name: 'Sončna elektrarna', color: '#eda100', text: 'Paneli na strehi proizvajajo elektriko, dokler je dovolj svetlobe.' },
-    { id: 'bat', name: 'Baterija', color: '#1baf7a', text: 'Shranjuje presežek sonca za čas, ko ga je premalo.' },
-    { id: 'grid', name: 'Omrežje', color: '#eb6834', text: 'Pokrije, kar nam manjka, in sprejme presežek, ki ga ne moremo shraniti.' },
-    { id: 'kitchen', name: 'Kuhinja', color: '#06a77d', text: 'Največji porabnik, ki ga lahko časovno prilagajamo.', room: true },
-    { id: 'classA', name: 'Učilnice – zahod', color: '#f0563a', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
-    { id: 'classB', name: 'Učilnice – vzhod', color: '#f98324', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
-    { id: 'comp', name: 'Računalnica', color: '#3a86ff', text: 'Računalniki med poukom porabljajo stalno moč.', room: true },
-    { id: 'gym', name: 'Telovadnica', color: '#8338ec', text: 'Razsvetljava in prezračevanje, zvečer tudi športne dejavnosti.', room: true },
-    { id: 'tech', name: 'Tehnična soba', color: '#d99a00', text: 'Razsmernik, prezračevanje in skupne naprave.', room: true },
+    { id: 'school', short: 'Cela šola', name: 'Cela šola', color: '#2a78d6', text: 'Skupna poraba vseh prostorov in kuhinje.' },
+    { id: 'pv', short: 'Sonce', name: 'Sončna elektrarna', color: '#eda100', text: 'Paneli na strehi proizvajajo elektriko, dokler je dovolj svetlobe.' },
+    { id: 'bat', short: 'Baterija', name: 'Baterija', color: '#1baf7a', text: 'Shranjuje presežek sonca za čas, ko ga je premalo.' },
+    { id: 'grid', short: 'Omrežje', name: 'Omrežje', color: '#eb6834', text: 'Pokrije, kar nam manjka, in sprejme presežek, ki ga ne moremo shraniti.' },
+    { id: 'kitchen', short: 'Kuhinja', name: 'Kuhinja', color: '#06a77d', text: 'Največji porabnik, ki ga lahko časovno prilagajamo.', room: true },
+    { id: 'classA', short: 'Učilnice 1', name: 'Učilnice – zahod', color: '#f0563a', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
+    { id: 'classB', short: 'Učilnice 2', name: 'Učilnice – vzhod', color: '#f98324', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
+    { id: 'comp', short: 'Računalnica', name: 'Računalnica', color: '#3a86ff', text: 'Računalniki med poukom porabljajo stalno moč.', room: true },
+    { id: 'gym', short: 'Telovadnica', name: 'Telovadnica', color: '#8338ec', text: 'Razsvetljava in prezračevanje, zvečer tudi športne dejavnosti.', room: true },
+    { id: 'tech', short: 'Tehnika', name: 'Tehnična soba', color: '#d99a00', text: 'Razsmernik, prezračevanje in skupne naprave.', room: true },
   ];
   const partById = (id) => PARTS.find((p) => p.id === id);
   function roomShares(h) {
@@ -265,7 +265,7 @@
     $('#part-bars-title').textContent = d.barsTitle;
     $('#part-note').hidden = !p.room || p.id === 'kitchen';
     const host = $('#part-chart'); host.innerHTML = '';
-    const W = Math.max(170, host.clientWidth || 340), Ht = 80, m = { l: 28, r: 6, t: 8, b: 20 };
+    const W = Math.max(170, host.clientWidth || 340), Ht = 130, m = { l: 28, r: 6, t: 8, b: 20 };
     const iw = W - m.l - m.r, ih = Ht - m.t - m.b;
     const top = d.top || Math.max(4, Math.ceil(Math.max(...d.arr) / 10) * 10);
     const X = (t) => m.l + (t / (T - 1)) * iw, Y = (v) => m.t + ih - (v / top) * ih;
@@ -287,7 +287,7 @@
     hit.addEventListener('pointerleave', () => { tip.hidden = true; });
 
     const bh = $('#part-bars'); bh.innerHTML = '';
-    const BW = Math.max(170, bh.clientWidth || 340), BH = 68, bm = { l: 4, r: 4, t: 16, b: 18 };
+    const BW = Math.max(170, bh.clientWidth || 340), BH = 110, bm = { l: 4, r: 4, t: 16, b: 18 };
     const hours = Array.from({ length: 24 }, (_, h) => d.bars.slice(h * 4, h * 4 + 4).reduce((a, v) => a + v, 0) * D.meta.dt);
     const bmax = Math.max(1, ...hours), slot = (BW - bm.l - bm.r) / 24, bw = Math.max(3, slot - 2);
     const bsvg = svgEl('svg', { viewBox: `0 0 ${BW} ${BH}`, height: BH, role: 'img', 'aria-label': `${d.barsTitle}: ${p.name}` }, bh);
@@ -304,6 +304,7 @@
     [0, 6, 12, 18].forEach((h) => { svgEl('text', { x: bm.l + h * slot, y: BH - 5 }, bsvg).textContent = `${h}:00`; });
     const peak = svgEl('text', { x: BW - bm.r, y: 11, 'text-anchor': 'end' }, bsvg); peak.textContent = `največ ${fmt(bmax, 1)} kWh`;
     document.querySelectorAll('#part-chips button').forEach((b) => { const on = b.dataset.part === p.id; b.setAttribute('aria-pressed', on); b.style.setProperty('--c', p.color); });
+    renderMachines();
     renderPartLive(state.t, frame(state.t));
   }
   function activeKitchen(t) {
@@ -311,7 +312,9 @@
     return D.tasks.filter((d, i) => t >= sc.starts[i] && t < sc.starts[i] + d.dur);
   }
   function renderPartLive(t, f) {
+    if (state.view !== 'explore') return;
     const p = partById(state.part); if (!p || !partGeom) return;
+    renderMachines();
     const v = partData(p.id).arr[t];
     partCursor.setAttribute('x1', partGeom.X(t)); partCursor.setAttribute('x2', partGeom.X(t));
     partDot.setAttribute('cx', partGeom.X(t)); partDot.setAttribute('cy', partGeom.Y(v));
@@ -339,9 +342,95 @@
     return { t, f, loads, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
       pv: { label: 'Sonce', value: kw(f.pv) }, school: { label: 'Poraba', value: kw(f.load) },
       bat: { label: 'Baterija', value: `${fmt(f.soc)} %` }, grid: { label: exporting ? 'V omrežje' : 'Iz omrežja', value: kw(exporting ? f.pe : f.gl) },
+      kitchen: { label: 'Kuhinja', value: kw(loads.kitchen) }, classA: { label: 'Učilnice 1', value: kw(loads.classA) }, classB: { label: 'Učilnice 2', value: kw(loads.classB) }, comp: { label: 'Računalnica', value: kw(loads.comp) }, gym: { label: 'Telovadnica', value: kw(loads.gym) }, tech: { label: 'Tehnika', value: kw(loads.tech) },
     } };
   }
-  function selectPart(id) { state.part = id; drawPart(); }
+  function selectPart(id) { state.part = id; closePop(); renderDock(); if (state.view === 'explore') drawPart(); }
+
+  // ---- Machines ---------------------------------------------------------
+  const SPLIT = {
+    classA: [['Projektor', 'projector', 0.25], ['Razsvetljava', 'lamp', 0.45], ['Prezračevanje', 'vent', 0.3]],
+    classB: [['Projektor', 'projector', 0.25], ['Razsvetljava', 'lamp', 0.45], ['Prezračevanje', 'vent', 0.3]],
+    comp: [['Računalniki', 'pc', 0.7], ['Strežnik', 'server', 0.15], ['Razsvetljava', 'lamp', 0.15]],
+    gym: [['Razsvetljava', 'lamp', 0.5], ['Prezračevanje', 'vent', 0.35], ['Ozvočenje', 'speaker', 0.15]],
+    tech: [['Razsmernik', 'inverter', 0.2], ['Prezračevalna enota', 'vent', 0.55], ['Omrežna oprema', 'server', 0.25]],
+  };
+  const TASK_ICON = { bake: 'oven', cook: 'kettle', dish: 'dishwasher', cool: 'fridge', wash: 'washer' };
+  const PART_ICON = { kitchen: 'oven', classA: 'projector', classB: 'projector', comp: 'pc', gym: 'ball', tech: 'inverter', pv: 'panel', bat: 'battery', grid: 'pylon', school: 'school' };
+  const machineCache = {};
+  function machinesFor(id) {
+    if (machineCache[id]) return machineCache[id];
+    const d = partData(id), s = liveSc();
+    let list;
+    if (id === 'kitchen') {
+      const tasks = D.tasks.map((task, i) => ({ name: task.device, icon: TASK_ICON[task.id], arr: Array.from({ length: T }, (_, t) => (t >= s.starts[i] && t < s.starts[i] + task.dur ? task.power : 0)) }));
+      const prep = Array.from({ length: T }, (_, t) => Math.max(0, s.series.kit[t] - tasks.reduce((a, m) => a + m.arr[t], 0)));
+      list = [...tasks, { name: 'Priprava hrane', icon: 'warmer', arr: prep }];
+    } else if (SPLIT[id]) list = SPLIT[id].map(([name, icon, f]) => ({ name, icon, arr: d.arr.map((v) => v * f) }));
+    else if (id === 'pv') list = [{ name: 'Sončni paneli', icon: 'panel', arr: d.arr }];
+    else if (id === 'bat') list = [{ name: 'Baterijski sklop', icon: 'battery', arr: d.arr, unit: '%' }];
+    else if (id === 'grid') list = [{ name: 'Priključek', icon: 'pylon', arr: d.arr }];
+    else list = PARTS.filter((p) => p.id !== 'school').map((p) => ({ name: p.short, icon: PART_ICON[p.id], part: p.id, arr: partData(p.id).arr, unit: partData(p.id).unit }));
+    return (machineCache[id] = list);
+  }
+  const fmtM = (m, t) => (m.unit === '%' ? `${fmt(m.arr[t])} %` : kw(m.arr[t]));
+  function spark(host, arr, color, t, Ht = 54) {
+    host.innerHTML = '';
+    const W = Math.max(150, host.clientWidth || 260), top = Math.max(1, ...arr), m = 3;
+    const X = (i) => m + (i / (T - 1)) * (W - 2 * m), Y = (v) => Ht - m - (v / top) * (Ht - 2 * m - 2);
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${Ht}`, height: Ht, width: '100%', role: 'img', 'aria-label': 'Poraba skozi dan' }, host);
+    const path = arr.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+    svgEl('path', { d: `${path}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: color, opacity: .22 }, svg);
+    svgEl('path', { d: path, fill: 'none', stroke: color, 'stroke-width': 2 }, svg);
+    svgEl('circle', { cx: X(t), cy: Y(arr[t]), r: 4, fill: color, stroke: '#fff', 'stroke-width': 1.5 }, svg);
+    const hit = svgEl('rect', { width: W, height: Ht, fill: 'transparent' }, svg);
+    hit.addEventListener('pointermove', (ev) => { const r = svg.getBoundingClientRect(); const i = Math.max(0, Math.min(T - 1, Math.round((ev.clientX - r.left) / r.width * (T - 1)))); showTip(ev, `<b>${clock(i)}</b><div><span>Moč</span><strong>${fmt(arr[i], 1)}</strong></div>`); });
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+  }
+  let openMachine = null;
+  const dock = $('#dock'), pop = $('#machine-pop');
+  dock.addEventListener('pointerenter', () => scene.hold());
+  function closePop() { openMachine = null; pop.hidden = true; }
+  function dockButton(icon, name, onClick) {
+    const b = document.createElement('button');
+    b.className = 'dock-item';
+    b.innerHTML = `${window.machineIcon(icon)}<span>${name}</span><strong></strong>`;
+    b.addEventListener('click', onClick);
+    dock.appendChild(b);
+    return b;
+  }
+  let dockEls = [];
+  function renderDock() {
+    dock.innerHTML = ''; dockEls = [];
+    const p = partById(state.part); if (!p) return;
+    if (p.id !== 'school') { const back = dockButton('school', 'Cela šola', () => { scene.select('school'); selectPart('school'); }); back.querySelector('strong').remove(); }
+    machinesFor(p.id).forEach((m) => {
+      const b = dockButton(m.icon, m.name, () => {
+        scene.hold();
+        if (m.part) { scene.select(m.part); selectPart(m.part); return; }
+        openMachine = openMachine === m ? null : m;
+        paintPop();
+      });
+      dockEls.push({ b, m });
+    });
+    updateDock();
+  }
+  function paintPop() {
+    pop.hidden = !openMachine;
+    dockEls.forEach(({ b, m }) => b.setAttribute('aria-expanded', openMachine === m));
+    if (!openMachine) return;
+    pop.innerHTML = `<b>${openMachine.name}</b><div class="pop-spark"></div>`;
+    spark(pop.querySelector('.pop-spark'), openMachine.arr, partById(state.part).color, state.t);
+  }
+  function updateDock() {
+    dockEls.forEach(({ b, m }) => { b.querySelector('strong').textContent = fmtM(m, state.t); });
+    if (openMachine) paintPop();
+  }
+  function renderMachines() {
+    const host = $('#machines'), p = partById(state.part);
+    host.innerHTML = machinesFor(p.id).map((m, i) => `<div class="machine"><span class="mi-wrap">${window.machineIcon(m.icon).replace('<svg', '<svg class="mi"')}</span><b>${m.name}</b><strong id="m-v-${i}"></strong><div id="m-s-${i}"></div></div>`).join('');
+    machinesFor(p.id).forEach((m, i) => { $(`#m-v-${i}`).textContent = fmtM(m, state.t); spark($(`#m-s-${i}`), m.arr, p.color, state.t); });
+  }
   let partCursor, partDot, partGeom, partBars = [];
 
   const RINGS = [
@@ -377,6 +466,7 @@
     $('#clock').textContent = clock(t);
     $('#scrub').value = t;
     scene.update(sceneData(t, f));
+    updateDock();
     renderPartLive(t, f);
     updateFlow(flowExplore, f);
     if (nowChart) nowChart.moveCursor(t);
@@ -507,7 +597,7 @@
     redraw();
   }
   function redraw() {
-    if (state.view === 'now') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: Math.max(96, Math.min(170, innerHeight * .13)), ymax: 100, cursor: true }); drawPart(); }
+    if (state.view === 'explore') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: 210, ymax: 100, cursor: true }); drawPart(); }
     if (state.view === 'better') renderBetter();
     renderLive();
   }
@@ -526,6 +616,7 @@
   segmented($('#c-weather'), Object.entries(D.meta.weathers), 'weather');
   segmented($('#c-cap'), D.meta.capacities.map((c) => [c, c ? `${c} kWh` : 'Brez']), 'cap');
   segmented($('#c-kitchen'), [['milpFixed', 'Običajni urnik'], ['milpShift', 'Prilagojen urnik']], 'kitchen');
+  renderDock();
   $('#legend-now').innerHTML = SERIES_LEGEND;
   $('#legend-better').innerHTML = SERIES_LEGEND;
   const m = D.meta;
@@ -545,6 +636,7 @@
   setView('now');
   import('./school3d.js').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: $('#stage-free'), onSelect: selectPart });
+    renderDock();
     renderLive();
   }).catch((err) => { console.error(err); $('#stage-error').hidden = false; });
 })();

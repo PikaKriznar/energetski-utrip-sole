@@ -32,7 +32,11 @@ const FEEDS = {
   gym: [[2.5, 0.35, 2.5], [0.7, 0.35, 2.5], [0.7, 0.35, 12.5], [2.5, 0.35, 12.5]],
 };
 const FEED_COLOR = '#2a78d6';
-const TAG_POS = { pv: [12, H + 1.6, 2.5], school: [10, 3.2, 7], bat: [22, 3.4, 2.3], grid: [25, 9.8, 8] };
+const ROOF_Y = H + 1.4;
+const TAG_POS = {
+  pv: [11.75, H + 3.6, 2.5], school: [13, 2.4, 7.6], bat: [22, 3.5, 2.3], grid: [25, 10, 8],
+  tech: [2.5, ROOF_Y, 2.5], classA: [7.25, ROOF_Y, 2.5], classB: [11.75, ROOF_Y, 2.5], comp: [16, ROOF_Y, 2.5], kitchen: [2.5, ROOF_Y, 7.5], gym: [2.5, ROOF_Y, 12.5],
+};
 
 export function createSchool3D(host, tagsHost, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -286,14 +290,12 @@ export function createSchool3D(host, tagsHost, api) {
     const el = document.createElement('div');
     el.className = 'tag'; el.style.setProperty('--c', p.color);
     el.innerHTML = '<span></span><strong></strong>';
+    const pickTag = () => { holdUser(); applySelection(id); };
+    el.addEventListener('pointerenter', pickTag);
+    el.addEventListener('click', pickTag);
     tagsHost.appendChild(el);
     tags[id] = { el, pos: new THREE.Vector3(...TAG_POS[id]).add(root.position), label: el.children[0], value: el.children[1] };
   }
-
-  const nameTag = document.createElement('div');
-  nameTag.className = 'tag tag-name'; nameTag.hidden = true;
-  tagsHost.appendChild(nameTag);
-  const namePos = new THREE.Vector3();
 
   // Selection
   let selected = null, mode = 'tour', tourIndex = -1, idleTimer, lastHover = null;
@@ -303,16 +305,11 @@ export function createSchool3D(host, tagsHost, api) {
     selected = id;
     for (const k in volumes) { volumes[k].visible = k === id; }
     for (const r of ROOMS) if (roofPanels[r.id]) roofPanels[r.id].visible = r.id !== id;
-    const room = ROOMS.find((r) => r.id === id), info = api.parts.find((p) => p.id === id);
-    nameTag.hidden = !room;
-    if (room) {
-      nameTag.textContent = info.name; nameTag.style.setProperty('--c', info.color);
-      namePos.set((room.x0 + room.x1) / 2, H + 1.4, (room.z0 + room.z1) / 2).add(root.position);
-    }
+    for (const k in tags) tags[k].el.classList.toggle('on', k === id);
     api.onSelect(id);
   }
   function tour() {
-    if (mode !== 'tour') return;
+    if (mode !== 'tour' || !active) return;
     tourIndex = (tourIndex + 1) % tourOrder.length;
     applySelection(tourOrder[tourIndex]);
   }
@@ -355,7 +352,7 @@ export function createSchool3D(host, tagsHost, api) {
       camera.setViewOffset(w, h, w / 2 - cx, h / 2 - cy, w, h);
     } else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    const fit = innerWidth > 960 ? Math.min(fw * 1.14, fh * 1.72) : Math.min(fw * 1.05, fh * 1.7);
+    const fit = innerWidth > 960 ? Math.min(fw * 1.14, fh * 1.85) : Math.min(fw * 1.05, fh * 1.7);
     const dist = ((DISC_R + 1.5) / Math.tan(THREE.MathUtils.degToRad(13))) * (h / fit);
     const dir = camera.position.clone().sub(controls.target).normalize();
     camera.position.copy(controls.target).addScaledVector(dir, dist);
@@ -408,10 +405,10 @@ export function createSchool3D(host, tagsHost, api) {
     if (selected && volumes[selected]) volumes[selected].material.opacity = pulse;
     renderer.render(scene, camera);
     const w = host.clientWidth, h = host.clientHeight;
-    if (!nameTag.hidden) { temp.copy(namePos).project(camera); nameTag.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`; }
     for (const t of Object.values(tags)) {
       temp.copy(t.pos).project(camera);
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
+      t.el.style.zIndex = Math.round((1 - temp.z) * 100000);
     }
   }
 
@@ -444,6 +441,7 @@ export function createSchool3D(host, tagsHost, api) {
   return {
     update, resize,
     select(id) { holdUser(); applySelection(id); },
+    hold: holdUser,
     setActive(v) { active = v; if (v) { clock.getDelta(); resize(); } },
   };
 }
