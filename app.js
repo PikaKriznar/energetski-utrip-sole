@@ -746,21 +746,18 @@
 
   // ---- Običajno / Optimizirano ------------------------------------------
   const MODES = [['base', 'Običajno'], ['milpShift', 'Optimizirano']];
-  let lastModeTouch = 0, modeNote;
-  function paintMode(note) {
+  let lastModeTouch = 0;
+  function paintMode() {
     const seg = $('#mode-seg'); seg.innerHTML = '';
     for (const [m, label] of MODES) {
       const b = document.createElement('button'); b.textContent = label; b.setAttribute('aria-pressed', state.mode === m);
       b.addEventListener('click', () => { lastModeTouch = Date.now(); scene.hold(); setMode(m); });
       seg.appendChild(b);
     }
-    const a = scenario(LIVE.weather, LIVE.cap, 'base').kpi, b = scenario(LIVE.weather, LIVE.cap, 'milpShift').kpi;
-    $('#mode-result').innerHTML = `Z optimizacijo: +${fmt(b.self_suff - a.self_suff, 1)} odstotne točke samozadostnosti · ${fmt(a.cost - b.cost, 2)} € manj na dan${note ? '<em>Spremenita se kuhinja in baterija.</em>' : ''}`;
   }
   function setMode(m) {
     state.mode = m;
-    closePop(); renderDock(); paintMode(true);
-    clearTimeout(modeNote); modeNote = setTimeout(() => paintMode(false), 3500);
+    closePop(); renderDock(); paintMode();
     scene.flash(['kitchen', 'bat']);
     renderLive();
   }
@@ -848,9 +845,9 @@
     reset();
   }
 
-  paintMode(false);
+  paintMode();
   setView('now');
-  import('./school3d.js?v=11').then((m) => {
+  import('./school3d.js?v=12').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);
