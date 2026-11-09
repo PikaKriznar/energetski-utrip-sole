@@ -7,7 +7,7 @@
   <meta name="description" content="Demo interaktivnega energetskega portala za šolsko avlo: sončna elektrarna, baterijski hranilnik in optimizacija porabe.">
   <meta name="theme-color" content="#b9e4ff">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c98500'/><path d='M18 4 9 18h6l-1 10 9-14h-6z' fill='%230d0d0d'/></svg>">
-  <link rel="stylesheet" href="styles.css?v=19">
+  <link rel="stylesheet" href="styles.css?v=20">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -54,18 +54,16 @@
         <div class="lab-left">
           <div class="card" id="lab-kpis"></div>
           <div class="card" id="lab-effect"></div>
-          <div class="seg" id="lab-weather"></div>
+          <div class="card lab-mission" id="lab-mission"></div>
+          <div class="card lab-sched">
+            <p id="lab-explain" aria-live="polite"></p>
+            <div class="sched-head"><h2>Čas polnjenja</h2><button id="lab-best" hidden>Predlagaj čas (približek)</button></div>
+            <div id="lab-timeline"></div>
+          </div>
         </div>
         <div class="lab-free" id="lab-free">
           <div id="lab-model"></div>
-          <div class="lab-strip">
-            <div class="card lab-mission" id="lab-mission"></div>
-            <div class="card lab-sched">
-              <p id="lab-explain" aria-live="polite"></p>
-              <div class="sched-head"><h2>Čas polnjenja</h2><button id="lab-best" hidden>Predlagaj čas (približek)</button></div>
-              <div id="lab-timeline"></div>
-            </div>
-          </div>
+          <div class="lab-strip"><div class="seg" id="lab-weather"></div></div>
         </div>
         <aside class="card lab-right">
           <h2>Povlecite na šolo</h2>
@@ -191,9 +189,9 @@
   </footer>
   <div id="tip" role="status" hidden></div>
 
-  <script src="data.js?v=19"></script>
-  <script src="icons.js?v=19"></script>
-  <script src="lab.js?v=19"></script>
-  <script src="app.js?v=19"></script>
+  <script src="data.js?v=20"></script>
+  <script src="icons.js?v=20"></script>
+  <script src="lab.js?v=20"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

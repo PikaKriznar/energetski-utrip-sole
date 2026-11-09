@@ -369,3 +369,18 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 .lab-stage { grid-template-rows: minmax(0, 1fr); }
 @media (max-width: 960px) { .lab-mission, .lab-sched { flex: none; } }
 @media (min-width: 961px) { body.v-now #view-lab { height: 100%; } }
+.card.lab-mission { background: linear-gradient(135deg, #6a3de8, #b5179e); border-color: rgba(255,255,255,.6); color: #fff; }
+.lab-mission .mission-head, .lab-mission .mission-status { color: #f3e8ff; }
+.lab-mission .mission-head button { background: rgba(255,255,255,.22); color: #fff; }
+.lab-mission .mission-track { background: rgba(255,255,255,.28); }
+.lab-mission .mission-track i { background: #ffd166; }
+.lab-mission.done .mission-track i { background: #7dffcf; }
+.lab-mission.done .mission-status { color: #fff; }
+.fx-total strong.good, .fx-head strong.good { color: #067a32; }
+.fx-total strong.bad, .fx-head strong.bad { color: #c4281c; }
+.lab-left > * { flex: none; }
+.lab-left .lab-mission, .lab-left .lab-sched { padding: 10px 12px; }
+.lab-strip { justify-content: center; }
+.lab-strip .seg { background: rgba(255,255,255,.92); box-shadow: 0 8px 26px rgba(30,64,110,.13); }
+.lab-strip .seg button { min-height: 40px; }
+body.v-lab main { margin-top: clamp(12px, 1.1vw, 20px); }

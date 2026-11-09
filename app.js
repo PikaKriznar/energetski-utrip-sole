@@ -686,11 +686,12 @@
     const mag = (e) => Math.abs(lab.unit === 'money' ? e.dc : e.dg);
     const max = Math.max(1e-6, ...effects.map(mag));
     const tabs = Object.entries(UNITS).map(([id, u]) => `<button data-unit="${id}" aria-pressed="${lab.unit === id}">${u.tab}</button>`).join('');
+    const tone = (dcost, dgrid) => { const v = unit.value(dcost, dgrid); return v.startsWith('+') ? 'bad' : v.startsWith('−') ? 'good' : ''; };
     const rows = effects.length ? effects.map((e) => {
       const more = (lab.unit === 'money' ? e.dc : e.dg) > 0;
-      return `<div class="fx"><span class="fx-icon">${window.machineIcon(e.icon)}</span><div class="fx-body"><div class="fx-head"><span>${e.name}</span><strong>${unit.value(e.dc, e.dg)}</strong></div><div class="fx-track"><i class="${more ? 'up' : 'down'}" style="width:${(100 * mag(e)) / max}%"></i></div></div></div>`;
+      return `<div class="fx"><span class="fx-icon">${window.machineIcon(e.icon)}</span><div class="fx-body"><div class="fx-head"><span>${e.name}</span><strong class="${tone(e.dc, e.dg)}">${unit.value(e.dc, e.dg)}</strong></div><div class="fx-track"><i class="${more ? 'up' : 'down'}" style="width:${(100 * mag(e)) / max}%"></i></div></div></div>`;
     }).join('') : '<p class="tl-empty">Dodajte element in tukaj boste videli njegov vpliv.</p>';
-    $('#lab-effect').innerHTML = `<h2>Kaj to pomeni?</h2><div class="seg fx-tabs">${tabs}</div><p class="fx-total"><strong>${unit.value(dc, dg)}</strong><span>${unit.sub(dc, dg)}</span></p><div class="fx-list">${rows}</div><p class="hint">Plus pomeni več energije iz omrežja ali višji strošek. ${NOTE[lab.unit]}</p>`;
+    $('#lab-effect').innerHTML = `<h2>Kaj to pomeni?</h2><div class="seg fx-tabs">${tabs}</div><p class="fx-total"><strong class="${tone(dc, dg)}">${unit.value(dc, dg)}</strong><span>${unit.sub(dc, dg)}</span></p><div class="fx-list">${rows}</div><p class="hint">Zeleno je dobro: manj energije iz omrežja ali nižji strošek. Rdeče je slabo. ${NOTE[lab.unit]}</p>`;
   }
   $('#lab-effect').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-unit]'); if (b) { lab.unit = b.dataset.unit; drawLab(); } });
   const palette = $('#palette');
@@ -965,7 +966,7 @@
 
   paintMode();
   setView('now');
-  import('./school3d.js?v=19').then((m) => {
+  import('./school3d.js?v=20').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-model') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);
