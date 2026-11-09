@@ -290,7 +290,8 @@ export function createSchool3D(host, tagsHost, api) {
     const el = document.createElement('div');
     el.className = 'tag'; el.style.setProperty('--c', p.color);
     el.innerHTML = '<span></span><strong></strong>';
-    const pickTag = () => { holdUser(); applySelection(id); };
+    if (ROOMS.some((r) => r.id === id)) el.dataset.room = id;
+    const pickTag = () => { if (labOn) return; holdUser(); applySelection(id); };
     el.addEventListener('pointerenter', pickTag);
     el.addEventListener('click', pickTag);
     tagsHost.appendChild(el);
@@ -298,7 +299,7 @@ export function createSchool3D(host, tagsHost, api) {
   }
 
   // Selection
-  let selected = null, mode = 'tour', tourIndex = -1, idleTimer, lastHover = null;
+  let labOn = false, selected = null, mode = 'tour', tourIndex = -1, idleTimer, lastHover = null;
   const tourOrder = api.parts.map((p) => p.id);
   function applySelection(id) {
     if (selected === id) return;
@@ -316,8 +317,9 @@ export function createSchool3D(host, tagsHost, api) {
   function holdUser() {
     mode = 'user'; controls.autoRotate = false;
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => { mode = 'tour'; controls.autoRotate = true; }, 10000);
+    idleTimer = setTimeout(() => { if (labOn) return; mode = 'tour'; controls.autoRotate = true; }, 10000);
   }
+  const temp = new THREE.Vector3();
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
   let dragging = false, pendingEvent = null;
   controls.addEventListener('start', () => { dragging = true; holdUser(); });
@@ -335,7 +337,73 @@ export function createSchool3D(host, tagsHost, api) {
   }
   canvas.addEventListener('pointermove', (ev) => { pendingEvent = ev; });
   canvas.addEventListener('pointerleave', () => { pendingEvent = null; canvas.style.cursor = 'grab'; });
-  canvas.addEventListener('click', (ev) => { const p = pick(ev); if (p) { holdUser(); applySelection(p); } });
+  canvas.addEventListener('click', (ev) => { if (labOn) return; const p = pick(ev); if (p) { holdUser(); applySelection(p); } });
+
+  // ---- "Dodaj in preizkusi": placed models and drop slots
+  const labGroup = new THREE.Group(); labGroup.visible = false; root.add(labGroup);
+  const ringGroup = new THREE.Group(); root.add(ringGroup);
+  const labAnim = [], slotRings = [], placedTags = [];
+  let hotSlot = null;
+  const LB = (g, x, y, z, w, h, d, c) => box(g, 'lab', x, y, z, w, h, d, c);
+  const disk = (g, r, y, c) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.08, 28), mat('lab', c)); m.position.y = y; g.add(m); return m; };
+  const BUILD = {
+    pv_roof(g) { for (let a = -1.9; a < 1.9; a += 1.5) for (let b = -2; b < 1.8; b += 1.15) { const p = box(g, 'lab', a, 0.3, b, 1.3, 0.06, 0.95, '', { material: panelMat }); p.rotation.x = -0.22; } },
+    carport(g) { [[-2, -1.2], [2, -1.2], [-2, 1.2], [2, 1.2]].forEach(([x, z]) => LB(g, x - 0.08, 0, z - 0.08, 0.16, 2.2, 0.16, '#868e96')); const r = box(g, 'lab', -2.4, 2.2, -1.6, 4.8, 0.08, 3.2, '', { material: panelMat }); r.rotation.x = -0.14; LB(g, -1.3, 0.25, -0.7, 2.6, 0.6, 1.3, '#ef476f'); },
+    wind(g) { LB(g, -0.12, 0, -0.12, 0.24, 7, 0.24, '#e9ecef'); const hub = new THREE.Group(); hub.position.set(0, 7, 0.25); g.add(hub); for (let i = 0; i < 3; i++) { const b = LB(hub, -0.11, 0, -0.04, 0.22, 2.3, 0.08, '#90e0ef'); const p = new THREE.Group(); p.rotation.z = (i * 2 * Math.PI) / 3; p.add(b); hub.add(p); } labAnim.push((e) => { hub.rotation.z = e * 2.2; }); },
+    battery(g) { LB(g, -1.5, 0, -1, 3, 2, 2, '#19b07f'); LB(g, -1.6, 2, -1.1, 3.2, 0.12, 2.2, '#c3f0dd'); for (let i = 0; i < 4; i++) LB(g, -1.2 + i * 0.65, 0.5, 0.98, 0.45, 1, 0.05, '#7dffcf'); },
+    ebus(g) { LB(g, -2.6, 0.32, -0.65, 5.2, 1.5, 1.3, '#06d6a0'); LB(g, -2.5, 1.05, -0.67, 5, 0.5, 1.34, '#264653'); LB(g, -2.6, 1.82, -0.65, 5.2, 0.14, 1.3, '#d4f8ec'); LB(g, 2.9, 0, -0.2, 0.4, 1.7, 0.4, '#3a86ff'); },
+    ev(g) { LB(g, -0.2, 0, -1.3, 0.4, 1.6, 0.3, '#3a86ff'); LB(g, -0.65, 0.25, -0.8, 1.3, 0.55, 2.3, '#ef476f'); LB(g, -0.55, 0.8, -0.3, 1.1, 0.42, 1.1, '#264653'); },
+    heatpump(g) { LB(g, -0.9, 0, -0.5, 1.8, 1.4, 1, '#e9ecef'); const f = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 20), mat('lab', '#495057')); f.rotation.x = Math.PI / 2; f.position.set(-0.2, 0.7, 0.52); g.add(f); },
+    laptops(g) { disk(g, 0.62, 0, '#7bdff2'); LB(g, -0.45, 0.06, -0.32, 0.9, 0.07, 0.62, '#adb5bd'); const s = LB(g, -0.45, 0.1, -0.34, 0.9, 0.6, 0.04, '#00d9f5'); s.rotation.x = -0.25; },
+    boards(g) { disk(g, 0.95, 0, '#ffd166'); LB(g, -0.85, 0.1, -0.08, 1.7, 1, 0.14, '#343a40'); LB(g, -0.76, 0.18, 0.05, 1.52, 0.84, 0.04, '#90e0ef'); },
+    led(g) { disk(g, 0.72, 0, '#fff3b0'); const b = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 14), new THREE.MeshBasicMaterial({ color: '#ffe066' })); b.position.y = 0.55; g.add(b); },
+  };
+  function setPlaced(items) {
+    labGroup.clear(); labAnim.length = 0;
+    placedTags.forEach((t) => t.el.remove()); placedTags.length = 0;
+    items.forEach((it, index) => {
+      const slot = window.LAB.SLOTS[it.type][it.slot], g = new THREE.Group();
+      g.position.set(slot.x, slot.y, slot.z); labGroup.add(g);
+      BUILD[it.type](g);
+      if (slot.y > 1) { const y = slot.y; const phase = index * 1.3; if (slot.y > H) labAnim.push((e) => { g.position.y = y + Math.sin(e * 1.6 + phase) * 0.09; }); }
+      const el = document.createElement('button');
+      el.className = 'tag tag-lab'; el.title = 'Odstrani';
+      el.innerHTML = `<span>${window.LAB.typeById(it.type).name}</span><strong>×</strong>`;
+      el.addEventListener('click', () => api.onRemove(it));
+      tagsHost.appendChild(el);
+      placedTags.push({ el, pos: new THREE.Vector3(slot.x, slot.y + (slot.y > H ? 1.6 : it.type === 'wind' ? 9.6 : 3), slot.z).add(root.position) });
+    });
+  }
+  function beginDrag(type, used) {
+    endDrag();
+    window.LAB.SLOTS[type].forEach((s, key) => {
+      if (used.includes(key)) return;
+      const big = type === 'pv_roof' || type === 'carport' || type === 'ebus';
+      const m = new THREE.Mesh(new THREE.RingGeometry(big ? 1.6 : 0.8, big ? 2.1 : 1.2, 40), new THREE.MeshBasicMaterial({ color: '#00c2ff', transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(s.x, s.y + 0.15, s.z);
+      m.renderOrder = 10;
+      ringGroup.add(m); slotRings.push({ key, mesh: m, s });
+    });
+  }
+  function dragOver(cx, cy) {
+    const r = canvas.getBoundingClientRect();
+    let best = null, bd = 130;
+    for (const ring of slotRings) {
+      temp.set(ring.s.x, ring.s.y, ring.s.z).add(root.position).project(camera);
+      const d = Math.hypot(r.left + ((temp.x + 1) / 2) * r.width - cx, r.top + ((1 - temp.y) / 2) * r.height - cy);
+      if (d < bd) { bd = d; best = ring.key; }
+    }
+    hotSlot = best;
+    return best;
+  }
+  function endDrag() { ringGroup.clear(); slotRings.length = 0; hotSlot = null; }
+  function setLab(on) {
+    if (on === labOn) return;
+    labOn = on; labGroup.visible = on;
+    clearTimeout(idleTimer);
+    if (on) { mode = 'lab'; controls.autoRotate = false; applySelection('school'); } else { mode = 'tour'; controls.autoRotate = true; endDrag(); }
+  }
 
   // Layout: keep the model inside the free area between the panels.
   let freeEl = null;
@@ -361,7 +429,7 @@ export function createSchool3D(host, tagsHost, api) {
 
   // Render loop
   const clock = new THREE.Clock();
-  const dummy = new THREE.Object3D(), temp = new THREE.Vector3(), colorTmp = new THREE.Color(), dim = new THREE.Color('#e7edf2');
+  const dummy = new THREE.Object3D(), colorTmp = new THREE.Color(), dim = new THREE.Color('#e7edf2');
   let active = true, busAngle = 0, elapsed = 0;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   function frame() {
@@ -369,7 +437,7 @@ export function createSchool3D(host, tagsHost, api) {
     if (!active) return;
     const dt = Math.min(clock.getDelta(), 0.1);
     elapsed += dt;
-    if (pendingEvent && !dragging) {
+    if (pendingEvent && !dragging && !labOn) {
       const p = pick(pendingEvent); pendingEvent = null;
       canvas.style.cursor = p ? 'pointer' : 'grab';
       if (p) { holdUser(); if (p !== lastHover) { lastHover = p; applySelection(p); } } else lastHover = null;
@@ -403,12 +471,18 @@ export function createSchool3D(host, tagsHost, api) {
     }
     const pulse = 0.2 + 0.1 * Math.sin(elapsed * 3.2);
     if (selected && volumes[selected]) volumes[selected].material.opacity = pulse;
+    for (const a of labAnim) a(elapsed);
+    for (const r of slotRings) r.mesh.scale.setScalar(r.key === hotSlot ? 1.35 + 0.1 * Math.sin(elapsed * 8) : 1);
     renderer.render(scene, camera);
     const w = host.clientWidth, h = host.clientHeight;
     for (const t of Object.values(tags)) {
       temp.copy(t.pos).project(camera);
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
       t.el.style.zIndex = Math.round((1 - temp.z) * 100000);
+    }
+    for (const t of placedTags) {
+      temp.copy(t.pos).project(camera);
+      t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
     }
   }
 
@@ -441,7 +515,8 @@ export function createSchool3D(host, tagsHost, api) {
   return {
     update, resize,
     select(id) { holdUser(); applySelection(id); },
-    hold: holdUser,
+    hold: holdUser, setPlaced, beginDrag, dragOver, endDrag, setLab,
+    setFreeArea(el) { freeEl = el; },
     setActive(v) { active = v; if (v) { clock.getDelta(); resize(); } },
   };
 }

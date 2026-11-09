@@ -181,7 +181,7 @@
   }
 
   // ---- Live views ------------------------------------------------------
-  let scene = { update() {}, select() {}, setActive() {}, resize() {}, hold() {} };
+  let scene = { update() {}, select() {}, setActive() {}, resize() {}, hold() {}, setPlaced() {}, setLab() {}, setFreeArea() {}, beginDrag() {}, dragOver() { return null; }, endDrag() {} };
   const flowExplore = createFlow($('#flow-explore'), true);
   let nowChart = null;
 
@@ -238,12 +238,6 @@
     { id: 'tech', short: 'Tehnika', name: 'Tehnična soba', color: '#d99a00', text: 'Razsmernik, prezračevanje in skupne naprave.', room: true },
   ];
   const partById = (id) => PARTS.find((p) => p.id === id);
-  function roomShares(h) {
-    const school = h >= 7.5 && h < 15.5, evening = h >= 17 && h < 21;
-    return school ? { tech: 0.26, classA: 0.21, classB: 0.21, comp: 0.18, gym: 0.14 }
-      : evening ? { tech: 0.45, classA: 0.05, classB: 0.05, comp: 0.05, gym: 0.4 }
-        : { tech: 0.76, classA: 0.07, classB: 0.07, comp: 0.05, gym: 0.05 };
-  }
   function partData(id) {
     const s = liveSc().series, range = Array.from({ length: T }, (_, i) => i);
     if (id === 'bat') return { arr: s.soc, bars: range.map((t) => s.pb[t] + s.bl[t]), unit: '%', top: 100, chartTitle: 'Napolnjenost skozi dan', barsTitle: 'Polnjenje in praznjenje po urah' };
@@ -252,7 +246,7 @@
     let a;
     if (id === 'school') a = range.map((t) => D.base[t] + s.kit[t]);
     else if (id === 'kitchen') a = s.kit;
-    else a = range.map((t) => D.base[t] * roomShares(t * 0.25)[id]);
+    else a = range.map((t) => D.rooms[id].reduce((x, m) => x + m.arr[t], 0));
     return { arr: a, bars: a, unit: 'kW', chartTitle: 'Poraba skozi dan', barsTitle: 'Porabljena energija po urah' };
   }
   function drawPart() {
@@ -263,7 +257,7 @@
     $('#part-card').style.borderTop = `6px solid ${p.color}`;
     $('#part-chart-title').textContent = d.chartTitle;
     $('#part-bars-title').textContent = d.barsTitle;
-    $('#part-note').hidden = !p.room || p.id === 'kitchen';
+    $('#part-note').hidden = !p.room;
     const host = $('#part-chart'); host.innerHTML = '';
     const W = Math.max(170, host.clientWidth || 340), Ht = 130, m = { l: 28, r: 6, t: 8, b: 20 };
     const iw = W - m.l - m.r, ih = Ht - m.t - m.b;
@@ -330,14 +324,13 @@
     const list = $('#part-list');
     list.hidden = p.id !== 'kitchen';
     if (p.id === 'kitchen') {
-      const fixed = t >= 30 && t < 38 ? ['Priprava malice · 8 kW'] : t >= 46 && t < 56 ? ['Ohranjanje toplote · 6 kW'] : [];
-      const items = [...activeKitchen(t).map((d) => `${d.device} · ${d.power} kW`), ...fixed];
+      const items = machinesFor('kitchen').filter((m) => m.arr[t] > 0.05).map((m) => `${m.name} · ${fmt(m.arr[t], 1)} kW`);
       list.innerHTML = (items.length ? items : ['Nobena večja naprava ne deluje.']).map((x) => `<li>${x}</li>`).join('');
     }
   }
   function sceneData(t, f) {
-    const shares = roomShares(t * 0.25), loads = { kitchen: liveSc().series.kit[t] };
-    for (const k in shares) loads[k] = D.base[t] * shares[k];
+    const loads = { kitchen: liveSc().series.kit[t] };
+    for (const k in D.rooms) loads[k] = D.rooms[k].reduce((x, m) => x + m.arr[t], 0);
     const exporting = f.pe > 0.5 && f.gl < 0.5;
     return { t, f, loads, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
       pv: { label: 'Sonce', value: kw(f.pv) }, school: { label: 'Poraba', value: kw(f.load) },
@@ -348,13 +341,6 @@
   function selectPart(id) { state.part = id; closePop(); renderDock(); if (state.view === 'explore') drawPart(); }
 
   // ---- Machines ---------------------------------------------------------
-  const SPLIT = {
-    classA: [['Projektor', 'projector', 0.25], ['Razsvetljava', 'lamp', 0.45], ['Prezračevanje', 'vent', 0.3]],
-    classB: [['Projektor', 'projector', 0.25], ['Razsvetljava', 'lamp', 0.45], ['Prezračevanje', 'vent', 0.3]],
-    comp: [['Računalniki', 'pc', 0.7], ['Strežnik', 'server', 0.15], ['Razsvetljava', 'lamp', 0.15]],
-    gym: [['Razsvetljava', 'lamp', 0.5], ['Prezračevanje', 'vent', 0.35], ['Ozvočenje', 'speaker', 0.15]],
-    tech: [['Razsmernik', 'inverter', 0.2], ['Prezračevalna enota', 'vent', 0.55], ['Omrežna oprema', 'server', 0.25]],
-  };
   const TASK_ICON = { bake: 'oven', cook: 'kettle', dish: 'dishwasher', cool: 'fridge', wash: 'washer' };
   const PART_ICON = { kitchen: 'oven', classA: 'projector', classB: 'projector', comp: 'pc', gym: 'ball', tech: 'inverter', pv: 'panel', bat: 'battery', grid: 'pylon', school: 'school' };
   const machineCache = {};
@@ -363,17 +349,17 @@
     const d = partData(id), s = liveSc();
     let list;
     if (id === 'kitchen') {
-      const tasks = D.tasks.map((task, i) => ({ name: task.device, icon: TASK_ICON[task.id], arr: Array.from({ length: T }, (_, t) => (t >= s.starts[i] && t < s.starts[i] + task.dur ? task.power : 0)) }));
-      const prep = Array.from({ length: T }, (_, t) => Math.max(0, s.series.kit[t] - tasks.reduce((a, m) => a + m.arr[t], 0)));
-      list = [...tasks, { name: 'Priprava hrane', icon: 'warmer', arr: prep }];
-    } else if (SPLIT[id]) list = SPLIT[id].map(([name, icon, f]) => ({ name, icon, arr: d.arr.map((v) => v * f) }));
+      const tasks = D.tasks.map((task, i) => ({ id: task.id, name: task.device, icon: TASK_ICON[task.id], arr: Array.from({ length: T }, (_, t) => (t >= s.starts[i] && t < s.starts[i] + task.dur ? task.power : 0)) }));
+      for (const f of D.kitchenFixed) if (f.task) { const m = tasks.find((x) => x.id === f.task); m.arr = m.arr.map((v, t) => v + f.arr[t]); }
+      list = [...tasks, ...D.kitchenFixed.filter((f) => !f.task).map((f) => ({ name: f.name, icon: f.icon, arr: f.arr }))];
+    } else if (D.rooms[id]) list = D.rooms[id].map((m) => ({ name: m.name, icon: m.icon, arr: m.arr }));
     else if (id === 'pv') list = [{ name: 'Sončni paneli', icon: 'panel', arr: d.arr }];
     else if (id === 'bat') list = [{ name: 'Baterijski sklop', icon: 'battery', arr: d.arr, unit: '%' }];
     else if (id === 'grid') list = [{ name: 'Priključek', icon: 'pylon', arr: d.arr }];
     else list = PARTS.filter((p) => p.id !== 'school').map((p) => ({ name: p.short, icon: PART_ICON[p.id], part: p.id, arr: partData(p.id).arr, unit: partData(p.id).unit }));
     return (machineCache[id] = list);
   }
-  const fmtM = (m, t) => (m.unit === '%' ? `${fmt(m.arr[t])} %` : kw(m.arr[t]));
+  const fmtM = (m, t) => (m.unit === '%' ? `${fmt(m.arr[t])} %` : m.arr[t] < 10 ? `${fmt(m.arr[t], 1)} kW` : kw(m.arr[t]));
   function spark(host, arr, color, t, Ht = 54) {
     host.innerHTML = '';
     const W = Math.max(150, host.clientWidth || 260), top = Math.max(1, ...arr), m = 3;
@@ -388,9 +374,9 @@
     hit.addEventListener('pointerleave', () => { tip.hidden = true; });
   }
   let openMachine = null;
-  const dock = $('#dock'), pop = $('#machine-pop');
+  const dock = $('#dock');
   dock.addEventListener('pointerenter', () => scene.hold());
-  function closePop() { openMachine = null; pop.hidden = true; }
+  function closePop() { openMachine = null; }
   function dockButton(icon, name, onClick) {
     const b = document.createElement('button');
     b.className = 'dock-item';
@@ -415,16 +401,39 @@
     });
     updateDock();
   }
+  function dayGraph(host, arr, color, t) {
+    const W = Math.max(240, host.clientWidth || 700), H = 78, m = { l: 34, r: 8, t: 8, b: 16 };
+    const top = Math.max(1, Math.ceil(Math.max(...arr)));
+    const X = (i) => m.l + (i / (T - 1)) * (W - m.l - m.r), Y = (v) => H - m.b - (v / top) * (H - m.t - m.b);
+    host.innerHTML = '';
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, height: H, width: '100%', role: 'img', 'aria-label': 'Potek skozi dan' }, host);
+    svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0), stroke: 'var(--axis)' }, svg);
+    svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(top), y2: Y(top), stroke: 'var(--grid-line)' }, svg);
+    svgEl('text', { x: m.l - 5, y: Y(top) + 4, 'text-anchor': 'end' }, svg).textContent = fmt(top);
+    svgEl('text', { x: m.l - 5, y: Y(0) + 4, 'text-anchor': 'end' }, svg).textContent = '0';
+    [0, 6, 12, 18, 24].forEach((h) => { svgEl('text', { x: X(Math.min(T - 1, h * 4)), y: H - 3, 'text-anchor': h === 24 ? 'end' : h ? 'middle' : 'start' }, svg).textContent = `${h}:00`; });
+    const path = arr.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+    svgEl('path', { d: `${path}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: color, opacity: .24 }, svg);
+    svgEl('path', { d: path, fill: 'none', stroke: color, 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, svg);
+    svgEl('line', { x1: X(t), x2: X(t), y1: m.t, y2: Y(0), stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    svgEl('circle', { cx: X(t), cy: Y(arr[t]), r: 4.5, fill: color, stroke: '#fff', 'stroke-width': 2 }, svg);
+    const hit = svgEl('rect', { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: 'transparent' }, svg);
+    hit.addEventListener('pointermove', (ev) => { const r = svg.getBoundingClientRect(); const i = Math.max(0, Math.min(T - 1, Math.round(((ev.clientX - r.left) * W / r.width - m.l) / (W - m.l - m.r) * (T - 1)))); showTip(ev, `<b>${clock(i)}</b><div><span>Moč</span><strong>${fmt(arr[i], 1)}</strong></div>`); });
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+  }
   function paintPop() {
-    pop.hidden = !openMachine;
-    dockEls.forEach(({ b, m }) => b.setAttribute('aria-expanded', openMachine === m));
-    if (!openMachine) return;
-    pop.innerHTML = `<b>${openMachine.name}</b><div class="pop-spark"></div>`;
-    spark(pop.querySelector('.pop-spark'), openMachine.arr, partById(state.part).color, state.t);
+    const p = partById(state.part); if (!p) return;
+    const d = partData(p.id), m = openMachine;
+    dockEls.forEach(({ b, m: x }) => b.setAttribute('aria-expanded', m === x));
+    const host = $('#dock-graph');
+    if (!host.firstChild) host.innerHTML = '<b></b><span></span><div class="dg"></div>';
+    host.children[0].textContent = m ? m.name : p.name;
+    host.children[1].textContent = `${m ? 'Moč skozi dan' : d.chartTitle} (${d.unit})`;
+    dayGraph(host.children[2], m ? m.arr : d.arr, p.color, state.t);
   }
   function updateDock() {
     dockEls.forEach(({ b, m }) => { b.querySelector('strong').textContent = fmtM(m, state.t); });
-    if (openMachine) paintPop();
+    paintPop();
   }
   function renderMachines() {
     const host = $('#machines'), p = partById(state.part);
@@ -452,7 +461,7 @@
   }
 
   function renderLive() {
-    const t = state.t, f = frame(t), c = cumulative(t);
+    const t = state.t, f = state.view === 'lab' ? labFrame(t) : frame(t), c = cumulative(t);
     const unit = (v, u) => `${v}<small>${u}</small>`;
     $('#k-pv').innerHTML = unit(fmt(f.pv), 'kW');
     $('#k-load').innerHTML = unit(fmt(f.load), 'kW');
@@ -467,6 +476,7 @@
     $('#scrub').value = t;
     scene.update(sceneData(t, f));
     updateDock();
+    if (labCursors) labCursors.forEach((fn) => fn(t));
     renderPartLive(t, f);
     updateFlow(flowExplore, f);
     if (nowChart) nowChart.moveCursor(t);
@@ -584,20 +594,130 @@
     drawCaps();
   }
 
+  // ---- Dodaj in preizkusi -----------------------------------------------
+  const lab = { items: [], weather: 'sunny', sim: null, base: null };
+  let labCursors = null;
+  function labFrame(t) {
+    const s = lab.sim;
+    return { pv: s.pv[t], load: s.load[t], pl: s.pl[t], pb: s.pb[t], pe: s.pe[t], bl: s.bl[t], gl: s.gl[t], soc: s.soc[t] };
+  }
+  function recomputeLab() {
+    lab.base = window.LAB.simulate(D, lab.weather, []);
+    lab.sim = window.LAB.simulate(D, lab.weather, lab.items);
+  }
+  function itemsChanged() {
+    recomputeLab();
+    scene.setPlaced(lab.items);
+    paintPalette();
+    if (state.view === 'lab') { drawLab(); renderLive(); }
+  }
+  function removeItem(it) { lab.items = lab.items.filter((x) => x !== it); itemsChanged(); }
+  const usedSlots = (type) => lab.items.filter((i) => i.type === type).map((i) => i.slot);
+  function addItem(type, slot) {
+    const used = usedSlots(type), all = window.LAB.SLOTS[type];
+    if (slot == null) slot = all.findIndex((_, k) => !used.includes(k));
+    if (slot < 0 || used.includes(slot)) return;
+    lab.items.push({ type, slot }); itemsChanged();
+  }
+  function paintPalette() {
+    document.querySelectorAll('.pal').forEach((b) => { const id = b.dataset.type, n = usedSlots(id).length, max = window.LAB.SLOTS[id].length; b.disabled = n >= max; b.querySelector('em').textContent = `${n}/${max}`; });
+  }
+  function lineChart(host, series, H, limit) {
+    host.innerHTML = '';
+    const W = Math.max(220, host.clientWidth || 340), m = { l: 34, r: 6, t: 8, b: 20 };
+    const top = Math.max(10, Math.ceil(Math.max(...series.flatMap((s) => s.arr), limit && Math.max(...series[series.length - 1].arr) > limit ? limit : 0) / 20) * 20);
+    const X = (t) => m.l + (t / (T - 1)) * (W - m.l - m.r), Y = (v) => m.t + (H - m.t - m.b) * (1 - v / top);
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, height: H, width: '100%', role: 'img', 'aria-label': series.map((s) => s.name).join(', ') }, host);
+    [0, top / 2, top].forEach((v) => { svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v ? 'var(--grid-line)' : 'var(--axis)' }, svg); svgEl('text', { x: m.l - 5, y: Y(v) + 4, 'text-anchor': 'end' }, svg).textContent = fmt(v); });
+    [0, 6, 12, 18].forEach((h) => { svgEl('text', { x: X(h * 4), y: H - 5, 'text-anchor': h ? 'middle' : 'start' }, svg).textContent = `${h}:00`; });
+    for (const s of series) {
+      const d = s.arr.map((v, t) => `${t ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+      if (s.area) svgEl('path', { d: `${d}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: s.color, opacity: .2 }, svg);
+      svgEl('path', { d, fill: 'none', stroke: s.color, 'stroke-width': s.dash ? 1.8 : 2.4, 'stroke-dasharray': s.dash || null, 'stroke-linejoin': 'round' }, svg);
+    }
+    const cur = svgEl('line', { y1: m.t, y2: H - m.b, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    const hit = svgEl('rect', { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: 'transparent' }, svg);
+    hit.addEventListener('pointermove', (ev) => { const r = svg.getBoundingClientRect(); const t = Math.max(0, Math.min(T - 1, Math.round(((ev.clientX - r.left) * W / r.width - m.l) / (W - m.l - m.r) * (T - 1)))); showTip(ev, `<b>${clock(t)}</b>${series.map((s) => tipRow(s.color, s.name, kw(s.arr[t]))).join('')}`); });
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+    const move = (t) => { cur.setAttribute('x1', X(t)); cur.setAttribute('x2', X(t)); };
+    move(state.t);
+    return move;
+  }
+  const legendOf = (series) => series.map((s) => `<span><i class="sw sw-line" style="background:${s.color}${s.dash ? ';opacity:.6' : ''}"></i>${s.name}</span>`).join('');
+  function drawLab() {
+    const a = lab.sim, b = lab.base, ka = a.kpi, kb = b.kpi;
+    const row = (name, was, now) => `<div class="lab-kpi"><span>${name}</span><strong><small>${was} →</small>${now}</strong></div>`;
+    const limit = D.meta.gridLimit;
+    $('#lab-kpis').innerHTML = row('Samozadostnost', `${fmt(kb.selfSuff)} %`, `${fmt(ka.selfSuff)} %`) + row('Iz omrežja', `${fmt(kb.grid)}`, `${fmt(ka.grid)} kWh`) + row('Strošek dneva', `${fmt(kb.cost, 2)}`, `${fmt(ka.cost, 2)} €`)
+      + (ka.peak > limit ? `<p class="lab-warn">⚠ Preobremenitev priključka: ${kw(ka.peak)} (meja ${limit} kW)</p>` : '');
+    const s1 = [{ name: 'Poraba brez dodatkov', arr: b.load, color: '#898781', dash: '5 4' }, { name: 'Poraba', arr: a.load, color: 'var(--load)' }, { name: 'Proizvodnja', arr: a.pv, color: 'var(--pv)' }];
+    const s2 = [{ name: 'Brez dodatkov', arr: b.gl, color: '#898781', dash: '5 4' }, { name: 'Z dodatki', arr: a.gl, color: 'var(--grid)', area: true }];
+    labCursors = [lineChart($('#lab-chart1'), s1, Math.max(130, innerHeight * .2)), lineChart($('#lab-chart2'), s2, Math.max(105, innerHeight * .16), limit)];
+    $('#lab-legend1').innerHTML = legendOf(s1); $('#lab-legend2').innerHTML = legendOf(s2);
+  }
+  const palette = $('#palette');
+  window.LAB.TYPES.forEach((type) => {
+    const b = document.createElement('button');
+    b.className = 'pal'; b.dataset.type = type.id;
+    b.innerHTML = `${window.machineIcon(type.icon)}<b>${type.name}</b><span>${type.effect}</span><span><em style="font-style:normal"></em></span>`;
+    palette.appendChild(b);
+    let drag = null;
+    const finish = (ev, drop) => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      const slot = drop && d.moved ? scene.dragOver(ev.clientX, ev.clientY) : null;
+      d.ghost.remove(); scene.endDrag();
+      if (!drop) return;
+      if (!d.moved) addItem(type.id);
+      else if (slot != null) addItem(type.id, slot);
+    };
+    b.addEventListener('pointerdown', (ev) => {
+      if (b.disabled) return;
+      ev.preventDefault(); try { b.setPointerCapture(ev.pointerId); } catch (err) { /* capture is optional */ }
+      const ghost = document.createElement('div'); ghost.id = 'drag-ghost'; ghost.innerHTML = window.machineIcon(type.icon);
+      ghost.style.transform = `translate(${ev.clientX - 46}px, ${ev.clientY - 46}px)`; ghost.hidden = true;
+      document.body.appendChild(ghost);
+      drag = { ghost, sx: ev.clientX, sy: ev.clientY, moved: false };
+    });
+    b.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) > 6) { drag.moved = true; drag.ghost.hidden = false; scene.beginDrag(type.id, usedSlots(type.id)); }
+      drag.ghost.style.transform = `translate(${ev.clientX - 46}px, ${ev.clientY - 46}px)`;
+      if (drag.moved) scene.dragOver(ev.clientX, ev.clientY);
+    });
+    b.addEventListener('pointerup', (ev) => finish(ev, true));
+    b.addEventListener('pointercancel', (ev) => finish(ev, false));
+  });
+  $('#lab-reset').addEventListener('click', () => { lab.items = []; itemsChanged(); });
+  function labWeather() {
+    const host = $('#lab-weather'); host.innerHTML = '';
+    for (const [w, label] of Object.entries(D.meta.weathers)) {
+      const b = document.createElement('button'); b.textContent = label; b.setAttribute('aria-pressed', lab.weather === w);
+      b.addEventListener('click', () => { lab.weather = w; labWeather(); itemsChanged(); });
+      host.appendChild(b);
+    }
+  }
+  recomputeLab(); labWeather(); paintPalette();
+
   // ---- App shell -------------------------------------------------------
   function setView(v) {
     state.view = v;
     document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', b.dataset.view === v));
     document.querySelectorAll('.view').forEach((s) => { s.hidden = s.id !== `view-${v}`; });
     $('#player').hidden = v === 'better';
-    document.body.classList.toggle('v-now', v === 'now');
-    scene.setActive(v === 'now');
+    const stage3d = v === 'now' || v === 'lab';
+    document.body.classList.toggle('v-now', stage3d);
+    document.body.classList.toggle('v-lab', v === 'lab');
+    scene.setActive(stage3d);
+    scene.setLab(v === 'lab');
+    scene.setFreeArea(v === 'lab' ? $('#lab-free') : $('#stage-free'));
     scene.resize();
     tip.hidden = true;
     redraw();
   }
   function redraw() {
     if (state.view === 'explore') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: 210, ymax: 100, cursor: true }); drawPart(); }
+    if (state.view === 'lab') drawLab();
     if (state.view === 'better') renderBetter();
     renderLive();
   }
@@ -635,7 +755,9 @@
 
   setView('now');
   import('./school3d.js').then((m) => {
-    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: $('#stage-free'), onSelect: selectPart });
+    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem });
+    scene.setLab(state.view === 'lab');
+    scene.setPlaced(lab.items);
     renderDock();
     renderLive();
   }).catch((err) => { console.error(err); $('#stage-error').hidden = false; });

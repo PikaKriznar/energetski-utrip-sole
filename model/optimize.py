@@ -80,21 +80,91 @@ def pv_profile(w):
     return np.array(out)
 
 
+def between(a, b):
+    """1 for every 15-minute step between hours a and b."""
+    return np.array([1.0 if a <= (t + 0.5) * DT < b else 0.0 for t in range(T)])
+
+
+def lessons():
+    """Share of classes in session: 45-minute lessons with breaks, fewer classes late."""
+    out = np.zeros(T)
+    for start, share in [(8.25, 1), (9.25, 1), (10.25, 1), (11.25, 1), (12.25, 0.9), (13.25, 0.7), (14.25, 0.4)]:
+        out += between(start, start + 0.75) * share
+    return out
+
+
+def cycling(power, period, on_steps, offset=0):
+    """Refrigeration: the compressor cycles while the fans keep running."""
+    return np.array([power if (t + offset) % period < on_steps else power * 0.35 for t in range(T)])
+
+
+def jitter(arr, seed, amount=0.05):
+    rng = random.Random(seed)
+    return np.array([max(0.0, v * (1 + rng.uniform(-amount, amount))) for v in arr])
+
+
+def classroom_devices(seed):
+    L, day = lessons(), between(7.5, 15.5)
+    clean = between(15.5, 18.5)
+    return [
+        ("Razsvetljava", "lamp", jitter(5.0 * day * (0.72 + 0.28 * (L > 0)) + 1.5 * clean + 0.1, seed)),
+        ("Projektorji", "projector", jitter(1.5 * L + 0.08, seed + 1)),
+        ("Interaktivni zasloni in računalniki", "pc", jitter(1.1 * L + 0.25 * day + 0.05, seed + 2)),
+        ("Prezračevanje", "vent", jitter(1.3 * day + 0.5 * L + 0.05, seed + 3)),
+    ]
+
+
+def build_devices():
+    """Synthetic machine-level schedules; replace with sub-meter data when available."""
+    L, school = lessons(), between(7, 16)
+    evening = between(17, 21)
+    return {
+        "tech": [
+            ("Prezračevalna enota", "vent", jitter(1.5 + 6.5 * between(6.5, 16) + 1.5 * between(16, 21), 21)),
+            ("Obtočne črpalke", "pump", jitter(1.2 + 0.8 * between(5.5, 18), 22)),
+            ("Hodniki in stopnišča", "lamp", jitter(0.6 + 2.4 * between(7, 16) + 1.0 * between(16, 21.5), 23)),
+            ("Omrežna oprema", "server", jitter(np.full(T, 1.5), 24, 0.02)),
+            ("Alarm in video nadzor", "alarm", jitter(np.full(T, 0.6) + 0.15 * between(21.5, 24) + 0.15 * between(0, 6), 25, 0.02)),
+            ("Razsmernik (lastna raba)", "inverter", jitter(0.15 + 0.45 * between(6.5, 19.5), 26, 0.02)),
+        ],
+        "classA": classroom_devices(31),
+        "classB": classroom_devices(41),
+        "comp": [
+            ("Računalniki", "pc", jitter(3.6 * L + 0.4 * between(7.5, 15.5) + 0.12, 51)),
+            ("Strežnik", "server", jitter(np.full(T, 0.5) + 0.2 * school, 52, 0.02)),
+            ("Razsvetljava", "lamp", jitter(0.9 * between(7.5, 15.5) + 0.05, 53)),
+            ("Klimatska naprava", "vent", jitter(1.4 * between(10, 15) * (L > 0), 54)),
+            ("Projektor", "projector", jitter(0.3 * L + 0.02, 55)),
+        ],
+        "gym": [
+            ("Razsvetljava", "lamp", jitter(4.0 * between(8, 15) + 5.0 * evening + 0.1, 61)),
+            ("Prezračevanje", "vent", jitter(2.0 * between(8, 15) + 2.5 * evening + 0.1, 62)),
+            ("Grelnik vode za tuše", "heater", jitter(1.0 * between(0, 24) * 0.25 + 2.2 * between(7, 8) + 2.2 * between(16, 17.5), 63)),
+            ("Ozvočenje", "speaker", jitter(0.3 * between(8, 15) * (L > 0) + 0.4 * evening + 0.01, 64)),
+        ],
+    }
+
+
+KITCHEN_FIXED = [
+    ("Hladilna komora", "fridge", cycling(1.5, 3, 1), "cool"),
+    ("Hladilnik", "fridge", cycling(0.5, 4, 2, 1), None),
+    ("Zamrzovalnik", "fridge", cycling(0.9, 4, 2, 3), None),
+    ("Priprava malice", "warmer", 8.0 * between(7.5, 9.5), None),
+    ("Ohranjanje toplote", "warmer", 6.0 * between(11.5, 14), None),
+    ("Kuhinjska napa", "vent", 2.5 * between(6, 14) + 1.0 * between(14, 15), None),
+    ("Razsvetljava", "lamp", 1.1 * between(6, 15.5) + 0.05, None),
+]
+DEVICES = build_devices()
+
+
 def base_profile():
-    """Whole-school load without the kitchen."""
-    points = [(0, 9), (6, 9), (7, 18), (8, 40), (10, 44), (12.5, 42), (14, 34),
-              (15.5, 24), (17, 15), (18, 16), (21, 13), (22, 9), (24, 9)]
-    rng = random.Random(5)
-    return np.array([np.interp((t + 0.5) * DT, *zip(*points)) * (1 + rng.gauss(0, 0.025))
-                     for t in range(T)])
+    """Whole-school load without the kitchen, summed from machine schedules."""
+    return sum(arr for room in DEVICES.values() for _, _, arr in room)
 
 
 def kitchen_fixed():
-    """Kitchen load that cannot move (snack preparation, keeping lunch warm)."""
-    k = np.zeros(T)
-    k[slot("07:30"):slot("09:30")] = 8
-    k[slot("11:30"):slot("14:00")] = 6
-    return k
+    """Kitchen load that cannot move, summed from machine schedules."""
+    return sum(arr for _, _, arr, _ in KITCHEN_FIXED)
 
 
 def task_profile(starts):
@@ -274,6 +344,8 @@ def main():
             "weathers": {k: v["label"] for k, v in WEATHERS.items()},
         },
         "base": [round(float(x), 2) for x in base],
+        "rooms": {room: [{"name": n, "icon": i, "arr": [round(float(v), 3) for v in a]} for n, i, a in items] for room, items in DEVICES.items()},
+        "kitchenFixed": [{"name": n, "icon": i, "task": k, "arr": [round(float(v), 3) for v in a]} for n, i, a, k in KITCHEN_FIXED],
         "tasks": [{k: t[k] for k in ("id", "name", "device", "power", "dur", "why", "s_default", "s_min", "s_max")}
                   for t in TASKS],
         "scenarios": scenarios,
