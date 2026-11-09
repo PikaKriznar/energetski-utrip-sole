@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Energetski utrip šole</title>
   <meta name="description" content="Demo interaktivnega energetskega portala za šolsko avlo: sončna elektrarna, baterijski hranilnik in optimizacija porabe.">
-  <meta name="theme-color" content="#0d0d0d">
+  <meta name="theme-color" content="#b9e4ff">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c98500'/><path d='M18 4 9 18h6l-1 10 9-14h-6z' fill='%230d0d0d'/></svg>">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
   <header class="top">
@@ -31,41 +32,43 @@
 
   <main>
     <section id="view-now" class="view" role="tabpanel" aria-labelledby="tab-now">
-      <div class="now-grid">
-        <div class="card scene-card">
-          <div class="scene-wrap">
-            <div id="scene"></div>
-            <aside id="ct-card" hidden></aside>
+      <div id="stage3d"><div id="tags"></div><p id="stage-error" hidden>3D modela ni bilo mogoče naložiti. Podatki spodaj delujejo naprej.</p></div>
+      <div class="stage">
+        <div class="col-left">
+          <div class="card">
+            <p class="eyebrow">Ta trenutek</p>
+            <p class="big-share"><strong id="share">–</strong><span>porabe pokriva lastna energija</span></p>
+            <p class="sentence" id="sentence"></p>
           </div>
-          <div class="scene-foot">
-            <p class="hint">Premaknite kazalec čez šolo ali izberite prostor:</p>
-            <div class="chips" id="ct-rooms" role="group" aria-label="CT pogled po prostorih"></div>
-          </div>
-        </div>
-        <div class="card headline-card">
-          <p class="eyebrow">Ta trenutek</p>
-          <p class="big-share"><strong id="share">–</strong><span>porabe šole pokriva lastna energija</span></p>
-          <p class="sentence" id="sentence"></p>
-          <div class="meters">
-            <div class="meter">
-              <div class="meter-head"><span>Samozadostnost danes</span><strong id="m-ss">–</strong></div>
-              <div class="track"><i id="b-ss"></i></div>
-              <p>Kolikšen del vse porabe smo pokrili sami.</p>
-            </div>
-            <div class="meter">
-              <div class="meter-head"><span>Samoporaba danes</span><strong id="m-sc">–</strong></div>
-              <div class="track"><i id="b-sc"></i></div>
-              <p>Kolikšen del sončne energije smo porabili v šoli.</p>
-            </div>
+          <div class="card">
+            <h2>Danes do te ure</h2>
+            <div class="rings" id="rings"></div>
           </div>
         </div>
+        <div class="stage-mid" id="stage-free">
+          <p class="stage-hint">Povlecite za vrtenje · s kazalcem izberite del šole</p>
+        </div>
+        <aside class="col-right card" id="part-card">
+          <p class="eyebrow">Izbrano</p>
+          <h2 id="part-name">–</h2>
+          <p class="part-value"><strong id="part-value">–</strong><span id="part-sub"></span></p>
+          <p class="part-text" id="part-text"></p>
+          <ul id="part-list" hidden></ul>
+          <h3 id="part-chart-title"></h3>
+          <div id="part-chart" class="chart"></div>
+          <h3 id="part-bars-title"></h3>
+          <div id="part-bars" class="chart"></div>
+          <p class="hint" id="part-note" hidden>Razdelitev po prostorih je ocena.</p>
+          <h3>Izberite del šole</h3>
+          <div class="chips part-chips" id="part-chips" role="group" aria-label="Izberi del šole"></div>
+        </aside>
         <div class="card chart-card">
           <div class="card-head">
             <h2>Od kod je prišla energija danes?</h2>
             <div class="legend" id="legend-now"></div>
           </div>
           <div id="chart-now" class="chart"></div>
-          <p class="hint">Barvne ploskve kažejo porabo šole po virih. Prostor med rumeno črto in ploskvami je sončna energija, ki je šola ni porabila takoj.</p>
+          <p class="hint">Ploskve kažejo porabo po virih, prostor pod rumeno črto nad njimi je neporabljeno sonce.</p>
         </div>
       </div>
     </section>
@@ -157,8 +160,7 @@
   </footer>
   <div id="tip" role="status" hidden></div>
 
-  <script src="data.js"></script>
-  <script src="scene.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

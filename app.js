@@ -6,7 +6,7 @@
   const COLORS = { pv: 'var(--pv)', bat: 'var(--bat)', grid: 'var(--grid)', load: 'var(--load)' };
   const LIVE = { weather: 'sunny', cap: 100, key: 'base' };
 
-  const state = { view: 'now', t: 40, playing: true, weather: 'sunny', cap: 100, kitchen: 'milpShift', selected: 'pv' };
+  const state = { part: 'school', view: 'now', t: 40, playing: true, weather: 'sunny', cap: 100, kitchen: 'milpShift', selected: 'pv' };
 
   // ---- Helpers ---------------------------------------------------------
   const fmt = (x, d = 0) => Number(x).toLocaleString('sl-SI', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -181,7 +181,7 @@
   }
 
   // ---- Live views ------------------------------------------------------
-  const scene = window.SchoolScene.create($('#scene'), $('#ct-card'), $('#ct-rooms'), { D, fmt, kw, getSc: liveSc });
+  let scene = { update() {}, select() {}, setActive() {}, resize() {} };
   const flowExplore = createFlow($('#flow-explore'), true);
   let nowChart = null;
 
@@ -224,6 +224,144 @@
   }
   function select(id) { state.selected = id; renderLive(); }
 
+  // ---- Selected part of the school -------------------------------------
+  const PARTS = [
+    { id: 'school', name: 'Cela šola', color: '#2a78d6', text: 'Skupna poraba vseh prostorov in kuhinje.' },
+    { id: 'pv', name: 'Sončna elektrarna', color: '#eda100', text: 'Paneli na strehi proizvajajo elektriko, dokler je dovolj svetlobe.' },
+    { id: 'bat', name: 'Baterija', color: '#1baf7a', text: 'Shranjuje presežek sonca za čas, ko ga je premalo.' },
+    { id: 'grid', name: 'Omrežje', color: '#eb6834', text: 'Pokrije, kar nam manjka, in sprejme presežek, ki ga ne moremo shraniti.' },
+    { id: 'kitchen', name: 'Kuhinja', color: '#06a77d', text: 'Največji porabnik, ki ga lahko časovno prilagajamo.', room: true },
+    { id: 'classA', name: 'Učilnice – zahod', color: '#f0563a', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
+    { id: 'classB', name: 'Učilnice – vzhod', color: '#f98324', text: 'Razsvetljava, projektorji in prezračevanje med poukom.', room: true },
+    { id: 'comp', name: 'Računalnica', color: '#3a86ff', text: 'Računalniki med poukom porabljajo stalno moč.', room: true },
+    { id: 'gym', name: 'Telovadnica', color: '#8338ec', text: 'Razsvetljava in prezračevanje, zvečer tudi športne dejavnosti.', room: true },
+    { id: 'tech', name: 'Tehnična soba', color: '#d99a00', text: 'Razsmernik, prezračevanje in skupne naprave.', room: true },
+  ];
+  const partById = (id) => PARTS.find((p) => p.id === id);
+  function roomShares(h) {
+    const school = h >= 7.5 && h < 15.5, evening = h >= 17 && h < 21;
+    return school ? { tech: 0.26, classA: 0.21, classB: 0.21, comp: 0.18, gym: 0.14 }
+      : evening ? { tech: 0.45, classA: 0.05, classB: 0.05, comp: 0.05, gym: 0.4 }
+        : { tech: 0.76, classA: 0.07, classB: 0.07, comp: 0.05, gym: 0.05 };
+  }
+  function partData(id) {
+    const s = liveSc().series, range = Array.from({ length: T }, (_, i) => i);
+    if (id === 'bat') return { arr: s.soc, bars: range.map((t) => s.pb[t] + s.bl[t]), unit: '%', top: 100, chartTitle: 'Napolnjenost skozi dan', barsTitle: 'Polnjenje in praznjenje po urah' };
+    if (id === 'pv') return { arr: livePv(), bars: livePv(), unit: 'kW', chartTitle: 'Proizvodnja skozi dan', barsTitle: 'Proizvedena energija po urah' };
+    if (id === 'grid') { const a = range.map((t) => s.gl[t] + s.pe[t]); return { arr: a, bars: a, unit: 'kW', chartTitle: 'Izmenjava z omrežjem skozi dan', barsTitle: 'Izmenjana energija po urah' }; }
+    let a;
+    if (id === 'school') a = range.map((t) => D.base[t] + s.kit[t]);
+    else if (id === 'kitchen') a = s.kit;
+    else a = range.map((t) => D.base[t] * roomShares(t * 0.25)[id]);
+    return { arr: a, bars: a, unit: 'kW', chartTitle: 'Poraba skozi dan', barsTitle: 'Porabljena energija po urah' };
+  }
+  function drawPart() {
+    const p = partById(state.part); if (!p) return;
+    const d = partData(p.id);
+    $('#part-name').textContent = p.name;
+    $('#part-text').textContent = p.text;
+    $('#part-card').style.borderTop = `6px solid ${p.color}`;
+    $('#part-chart-title').textContent = d.chartTitle;
+    $('#part-bars-title').textContent = d.barsTitle;
+    $('#part-note').hidden = !p.room || p.id === 'kitchen';
+    const host = $('#part-chart'); host.innerHTML = '';
+    const W = Math.max(240, host.clientWidth || 340), Ht = 98, m = { l: 34, r: 6, t: 8, b: 20 };
+    const iw = W - m.l - m.r, ih = Ht - m.t - m.b;
+    const top = d.top || Math.max(4, Math.ceil(Math.max(...d.arr) / 10) * 10);
+    const X = (t) => m.l + (t / (T - 1)) * iw, Y = (v) => m.t + ih - (v / top) * ih;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${Ht}`, height: Ht, role: 'img', 'aria-label': `${d.chartTitle}: ${p.name}` }, host);
+    [0, top / 2, top].forEach((v) => {
+      svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v ? 'var(--grid-line)' : 'var(--axis)' }, svg);
+      svgEl('text', { x: m.l - 5, y: Y(v) + 4, 'text-anchor': 'end' }, svg).textContent = fmt(v);
+    });
+    [0, 6, 12, 18].forEach((h) => { svgEl('text', { x: X(h * 4), y: Ht - 5, 'text-anchor': h ? 'middle' : 'start' }, svg).textContent = `${h}:00`; });
+    const path = d.arr.map((v, t) => `${t ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
+    svgEl('path', { d: `${path}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: p.color, opacity: .22 }, svg);
+    svgEl('path', { d: path, fill: 'none', stroke: p.color, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, svg);
+    partCursor = svgEl('line', { y1: m.t, y2: m.t + ih, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    partDot = svgEl('circle', { r: 5, fill: p.color, stroke: '#fff', 'stroke-width': 2 }, svg);
+    partGeom = { X, Y, arr: d.arr };
+    const hit = svgEl('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' }, svg);
+    const move = (ev) => { const r = svg.getBoundingClientRect(); const t = Math.max(0, Math.min(T - 1, Math.round(((ev.clientX - r.left) * W / r.width - m.l) / iw * (T - 1)))); showTip(ev, `<b>${clock(t)}</b><div><span>${p.name}</span><strong>${fmt(d.arr[t], 1)} ${d.unit}</strong></div>`); };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; });
+
+    const bh = $('#part-bars'); bh.innerHTML = '';
+    const BW = Math.max(240, bh.clientWidth || 340), BH = 82, bm = { l: 4, r: 4, t: 16, b: 18 };
+    const hours = Array.from({ length: 24 }, (_, h) => d.bars.slice(h * 4, h * 4 + 4).reduce((a, v) => a + v, 0) * D.meta.dt);
+    const bmax = Math.max(1, ...hours), slot = (BW - bm.l - bm.r) / 24, bw = Math.max(3, slot - 2);
+    const bsvg = svgEl('svg', { viewBox: `0 0 ${BW} ${BH}`, height: BH, role: 'img', 'aria-label': `${d.barsTitle}: ${p.name}` }, bh);
+    const base = BH - bm.b;
+    partBars = hours.map((v, h) => {
+      const x = bm.l + h * slot + 1, bar = Math.max(v > 0.05 ? 2 : 0, (v / bmax) * (base - bm.t));
+      const r = svgEl('rect', { x, y: base - bar, width: bw, height: bar, rx: Math.min(3, bw / 2), fill: p.color, opacity: .5 }, bsvg);
+      const hitR = svgEl('rect', { x: bm.l + h * slot, y: 0, width: slot, height: BH, fill: 'transparent' }, bsvg);
+      hitR.addEventListener('pointermove', (ev) => showTip(ev, `<b>${h}:00–${h + 1}:00</b><div><span>Energija</span><strong>${fmt(v, 1)} kWh</strong></div>`));
+      hitR.addEventListener('pointerleave', () => { tip.hidden = true; });
+      return r;
+    });
+    svgEl('line', { x1: bm.l, x2: BW - bm.r, y1: base, y2: base, stroke: 'var(--axis)' }, bsvg);
+    [0, 6, 12, 18].forEach((h) => { svgEl('text', { x: bm.l + h * slot, y: BH - 5 }, bsvg).textContent = `${h}:00`; });
+    const peak = svgEl('text', { x: BW - bm.r, y: 11, 'text-anchor': 'end' }, bsvg); peak.textContent = `največ ${fmt(bmax, 1)} kWh`;
+    document.querySelectorAll('#part-chips button').forEach((b) => { const on = b.dataset.part === p.id; b.setAttribute('aria-pressed', on); b.style.setProperty('--c', p.color); });
+    renderPartLive(state.t, frame(state.t));
+  }
+  function activeKitchen(t) {
+    const sc = liveSc();
+    return D.tasks.filter((d, i) => t >= sc.starts[i] && t < sc.starts[i] + d.dur);
+  }
+  function renderPartLive(t, f) {
+    const p = partById(state.part); if (!p || !partGeom) return;
+    const v = partData(p.id).arr[t];
+    partCursor.setAttribute('x1', partGeom.X(t)); partCursor.setAttribute('x2', partGeom.X(t));
+    partDot.setAttribute('cx', partGeom.X(t)); partDot.setAttribute('cy', partGeom.Y(v));
+    partBars.forEach((r, h) => r.setAttribute('opacity', h === Math.floor(t / 4) ? 1 : .45));
+    $('#part-value').textContent = p.id === 'bat' ? `${fmt(v)} %` : kw(v);
+    let sub = '';
+    if (p.room) sub = `${fmt(f.load ? 100 * v / f.load : 0)} % porabe šole`;
+    else if (p.id === 'pv') sub = `${fmt(100 * f.pv / D.meta.pvKwp)} % največje moči`;
+    else if (p.id === 'bat') sub = f.pb > 0.5 ? `polni se: ${kw(f.pb)}` : f.bl > 0.5 ? `prazni se: ${kw(f.bl)}` : 'miruje';
+    else if (p.id === 'grid') sub = f.pe > 0.5 && f.gl < 0.5 ? 'oddajamo' : 'jemljemo';
+    else sub = 'skupna poraba';
+    $('#part-sub').textContent = sub;
+    const list = $('#part-list');
+    list.hidden = p.id !== 'kitchen';
+    if (p.id === 'kitchen') {
+      const fixed = t >= 30 && t < 38 ? ['Priprava malice · 8 kW'] : t >= 46 && t < 56 ? ['Ohranjanje toplote · 6 kW'] : [];
+      const items = [...activeKitchen(t).map((d) => `${d.device} · ${d.power} kW`), ...fixed];
+      list.innerHTML = (items.length ? items : ['Nobena večja naprava ne deluje.']).map((x) => `<li>${x}</li>`).join('');
+    }
+  }
+  function sceneData(t, f) {
+    const shares = roomShares(t * 0.25), loads = { kitchen: liveSc().series.kit[t] };
+    for (const k in shares) loads[k] = D.base[t] * shares[k];
+    const exporting = f.pe > 0.5 && f.gl < 0.5;
+    return { t, f, loads, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
+      pv: { label: 'Sonce', value: kw(f.pv) }, school: { label: 'Poraba', value: kw(f.load) },
+      bat: { label: 'Baterija', value: `${fmt(f.soc)} %` }, grid: { label: exporting ? 'V omrežje' : 'Iz omrežja', value: kw(exporting ? f.pe : f.gl) },
+    } };
+  }
+  function selectPart(id) { state.part = id; drawPart(); }
+  let partCursor, partDot, partGeom, partBars = [];
+
+  const RINGS = [
+    { id: 'ss', name: 'Samozadostnost', text: 'del porabe, ki smo ga pokrili sami', c: 'var(--load)' },
+    { id: 'sc', name: 'Samoporaba', text: 'del sonca, porabljen v šoli', c: 'var(--pv)' },
+    { id: 'soc', name: 'Baterija', text: 'trenutna napolnjenost', c: 'var(--bat)' },
+  ];
+  const RING_C = 2 * Math.PI * 30;
+  $('#rings').innerHTML = RINGS.map((r) => `<div class="ring"><svg viewBox="0 0 74 74" aria-hidden="true"><circle cx="37" cy="37" r="30" fill="none" stroke="var(--surface-2)" stroke-width="9"/><circle id="ring-${r.id}" cx="37" cy="37" r="30" fill="none" stroke="${r.c}" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 ${RING_C}" transform="rotate(-90 37 37)"/><text id="ring-t-${r.id}" x="37" y="44" text-anchor="middle">–</text></svg><div><b>${r.name}</b><span>${r.text}</span></div></div>`).join('');
+  function setRing(id, v) {
+    $(`#ring-${id}`).setAttribute('stroke-dasharray', `${(v == null ? 0 : v / 100) * RING_C} ${RING_C}`);
+    $(`#ring-t-${id}`).textContent = v == null ? '–' : `${fmt(v)}%`;
+  }
+  const partChips = $('#part-chips');
+  for (const p of PARTS) {
+    const b = document.createElement('button'); b.textContent = p.name; b.dataset.part = p.id;
+    b.addEventListener('click', () => { scene.select(p.id); selectPart(p.id); });
+    partChips.appendChild(b);
+  }
+
   function renderLive() {
     const t = state.t, f = frame(t), c = cumulative(t);
     const unit = (v, u) => `${v}<small>${u}</small>`;
@@ -235,13 +373,11 @@
     $('#k-grid').innerHTML = unit(fmt(exporting ? f.pe : f.gl), 'kW');
     $('#share').textContent = `${fmt(100 * (1 - f.gl / f.load))} %`;
     $('#sentence').textContent = sentence(f);
-    $('#m-ss').textContent = `${fmt(c.ss)} %`;
-    $('#b-ss').style.width = `${c.ss}%`;
-    $('#m-sc').textContent = c.sc == null ? '–' : `${fmt(c.sc)} %`;
-    $('#b-sc').style.width = `${c.sc ?? 0}%`;
+    setRing('ss', c.ss); setRing('sc', c.sc); setRing('soc', f.soc);
     $('#clock').textContent = clock(t);
     $('#scrub').value = t;
-    scene.update(t, f);
+    scene.update(sceneData(t, f));
+    renderPartLive(t, f);
     updateFlow(flowExplore, f);
     if (nowChart) nowChart.moveCursor(t);
     $('#explain').innerHTML = TOPICS[state.selected].html(f);
@@ -364,11 +500,14 @@
     document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', b.dataset.view === v));
     document.querySelectorAll('.view').forEach((s) => { s.hidden = s.id !== `view-${v}`; });
     $('#player').hidden = v === 'better';
+    document.body.classList.toggle('v-now', v === 'now');
+    scene.setActive(v === 'now');
+    scene.resize();
     tip.hidden = true;
     redraw();
   }
   function redraw() {
-    if (state.view === 'now') nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: Math.max(170, Math.min(300, innerHeight * .17)), ymax: 100, cursor: true });
+    if (state.view === 'now') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: Math.max(130, Math.min(240, innerHeight * .15)), ymax: 100, cursor: true }); drawPart(); }
     if (state.view === 'better') renderBetter();
     renderLive();
   }
@@ -404,4 +543,8 @@
   }
 
   setView('now');
+  import('./school3d.js').then((m) => {
+    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: $('#stage-free'), onSelect: selectPart });
+    renderLive();
+  }).catch((err) => { console.error(err); $('#stage-error').hidden = false; });
 })();

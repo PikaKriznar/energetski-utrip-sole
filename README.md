@@ -6,7 +6,7 @@ Demo interaktivnega energetskega portala za zaslon v šolski avli: sončna elekt
 
 ## Prikazi
 
-- **Stanje zdaj** – ambientni prikaz brez obvezne interakcije.
+- **Stanje zdaj** – vrtljiv 3D model šole (three.js) z infografikami; izbira dela šole spremeni grafe.
 - **Kako deluje?** – shema energijskih tokov z razlagami posameznih komponent.
 - **Kaj lahko naredimo bolje?** – primerjava osnovnega in optimiziranega delovanja, kapacitet baterije, vremena ter priporočila za kuhinjo.
 
