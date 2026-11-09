@@ -271,3 +271,11 @@ body.v-lab .tag[data-room] { display: none; }
   #palette { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
 }
 body:not(.v-lab) .tag-lab { display: none; }
+body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justify-content: center; align-items: stretch; pointer-events: none; }
+.dock-wrap > * { pointer-events: auto; }
+#dock-graph { flex: 0 0 clamp(260px, 24vw, 460px); min-width: 0; }
+.dock-wrap #dock { flex: 0 1 auto; min-width: 0; justify-content: flex-start; align-items: center; }
+@media (max-width: 960px) {
+  body .dock-wrap { flex-direction: column; }
+  #dock-graph { flex: none; }
+}
