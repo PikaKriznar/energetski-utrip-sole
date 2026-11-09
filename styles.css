@@ -311,3 +311,9 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 .tag[data-part=bat], .tag.on[data-part=bat] { background: #0f7a58; color: #fff; border-left-color: #0a5740; }
 .tag[data-part=bat] span { color: #dcfbef; font-weight: 600; }
 .tag.on[data-part=bat] { box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(30,64,110,.3); }
+.now-top { width: clamp(260px, 20vw, 380px); max-width: none; align-items: stretch; }
+.now-top .own-pill, .now-top .hint-pill, .now-top .mode-bar { width: 100%; align-self: stretch; box-sizing: border-box; }
+.now-top .mode-bar { align-items: stretch; }
+.now-top .mode-bar .seg { width: 100%; }
+.now-top .mode-bar .seg button { flex: 1; }
+@media (max-width: 960px) { .now-top { width: min(100%, 420px); align-self: center; } }
