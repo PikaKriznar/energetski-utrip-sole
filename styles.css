@@ -266,7 +266,9 @@ body.v-now .kpis { display: none; }
 body:not(.v-now) #stage3d { display: none; }
 @media (max-width: 960px) {
   .lab-stage { display: flex; flex-direction: column; height: auto; }
-  .lab-free { display: none; }
+  .lab-free { display: block; }
+  #lab-model { display: none; }
+  .lab-strip { flex-direction: column; }
   .lab-right { order: -1; }
   #palette { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
 }
@@ -317,3 +319,52 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 .now-top .mode-bar .seg { width: 100%; }
 .now-top .mode-bar .seg button { flex: 1; }
 @media (max-width: 960px) { .now-top { width: min(100%, 420px); align-self: center; } }
+.lab-free { display: flex; flex-direction: column; min-height: 0; gap: var(--gap); }
+#lab-model { flex: 1; min-height: 0; }
+.lab-strip { display: flex; gap: var(--gap); align-items: stretch; pointer-events: auto; }
+.lab-mission { flex: 0 0 clamp(220px, 19vw, 320px); display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; }
+.lab-sched { flex: 1; min-width: 0; padding: 10px 12px; }
+.mission-head { display: flex; align-items: center; justify-content: space-between; color: var(--ink-2); font-size: .88em; }
+.mission-head button { border: 0; background: var(--surface-2); border-radius: 8px; width: 40px; height: 34px; margin-left: 4px; }
+.lab-mission b { line-height: 1.25; }
+.mission-status { color: var(--ink-2); font-size: .9em; }
+.mission-track { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.mission-track i { display: block; height: 100%; background: var(--load); border-radius: 4px; }
+.lab-mission.done .mission-track i { background: #0ca30c; }
+.lab-mission.done .mission-status { color: #006300; font-weight: 700; }
+#lab-explain { font-weight: 600; line-height: 1.25; min-height: 2.5em; }
+.sched-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0; }
+.sched-head h2 { font-size: .95em; }
+#lab-best { border: 1px solid var(--axis); background: #fff; border-radius: 8px; min-height: 32px; padding: 0 .7em; font-size: .86em; }
+#lab-timeline { min-height: 66px; }
+.tl-empty { color: var(--ink-2); font-size: .9em; }
+.tl-rows { position: relative; }
+.tl-sun { position: absolute; left: 92px; right: 0; top: 0; height: 100%; width: calc(100% - 92px); pointer-events: none; }
+.tl-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; height: 26px; position: relative; }
+.tl-row > span { font-size: .84em; }
+.tl-track { position: relative; height: 22px; }
+.tl-win { position: absolute; top: 2px; bottom: 2px; background: rgba(42,120,214,.14); border-radius: 5px; }
+.tl-block { position: absolute; top: 0; bottom: 0; border: 0; border-radius: 6px; color: #fff; font-size: .8em; font-weight: 700; padding: 0; cursor: grab; touch-action: none; white-space: nowrap; }
+.tl-axis { margin-left: 92px; position: relative; height: 15px; font-size: 11px; color: var(--muted); }
+.tl-axis span { position: absolute; transform: translateX(-50%); }
+.tl-axis span:first-child { transform: none; }
+.tl-axis span:last-child { transform: translateX(-100%); }
+.fx-tabs { margin: .4em 0; background: var(--surface-2); flex-wrap: nowrap; }
+.fx-tabs button { flex: 1; min-height: 38px; padding: 0 .3em; font-size: .88em; }
+.fx-tabs button[aria-pressed=true] { background: #101828; color: #fff; }
+.fx-total { display: flex; flex-direction: column; line-height: 1.15; }
+.fx-total strong { font-size: clamp(1.9rem, 2.6vw, 3.2rem); font-weight: 800; letter-spacing: -.02em; }
+.fx-total span { color: var(--ink-2); font-size: .9em; }
+.fx-list { display: grid; gap: 6px; margin-top: .6em; }
+.fx { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px; align-items: center; }
+.fx-icon svg { width: 40px; height: 40px; display: block; }
+.fx-head { display: flex; justify-content: space-between; gap: 8px; font-size: .92em; }
+.fx-head span { min-width: 0; }
+.fx-head strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fx-track { height: 7px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-top: 3px; }
+.fx-track i { display: block; height: 100%; border-radius: 4px; }
+.fx-track i.up { background: #d92d20; }
+.fx-track i.down { background: #0ca30c; }
+#lab-effect .hint { margin-top: .6em; }
+.lab-stage { grid-template-rows: minmax(0, 1fr); }
+@media (max-width: 960px) { .lab-mission, .lab-sched { flex: none; } }

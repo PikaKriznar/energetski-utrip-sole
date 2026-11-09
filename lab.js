@@ -27,6 +27,10 @@ window.LAB = (() => {
     boards: [{ x: 7.25, y: FLOAT, z: 1.5, room: 'classA' }, { x: 11.75, y: FLOAT, z: 1.5, room: 'classB' }],
     led: [{ x: 7.25, y: FLOAT, z: 3.6, room: 'classA' }, { x: 11.75, y: FLOAT, z: 3.6, room: 'classB' }, { x: 2.5, y: FLOAT, z: 12.5, room: 'gym' }, { x: 15.2, y: FLOAT, z: 4.2, room: 'comp' }],
   };
+  const FLEX = {
+    ebus: { dur: 1.5, min: 8.5, max: 13.5, def: (slot) => 9.5 + slot * 1.75, color: '#06a77d', label: 'Avtobus' },
+    ev: { dur: 3, min: 7.5, max: 14, def: (slot) => 8 + slot, color: '#3a86ff', label: 'Polnilnica' },
+  };
   const typeById = (id) => TYPES.find((t) => t.id === id);
 
   function lessons() {
@@ -51,8 +55,8 @@ window.LAB = (() => {
       if (it.type === 'carport') D.scenarios[weather].pv.forEach((v, t) => { pv[t] += v * 0.25; });
       if (it.type === 'wind') for (let t = 0; t < T; t++) pv[t] += 6 * windF * (1 + 0.4 * Math.sin(t / 7 + it.slot));
       if (it.type === 'battery') cap += 50;
-      if (it.type === 'ebus') { const a = between(9.5 + it.slot * 1.75, 11 + it.slot * 1.75).map((v) => v * 50); add(a); extras.push({ item: it, arr: a }); }
-      if (it.type === 'ev') { const a = between(8 + it.slot, 11 + it.slot).map((v) => v * 11); add(a); extras.push({ item: it, arr: a }); }
+      if (it.type === 'ebus') { const st = it.start ?? FLEX.ebus.def(it.slot); const a = between(st, st + FLEX.ebus.dur).map((v) => v * 50); add(a); extras.push({ item: it, arr: a }); }
+      if (it.type === 'ev') { const st = it.start ?? FLEX.ev.def(it.slot); const a = between(st, st + FLEX.ev.dur).map((v) => v * 11); add(a); extras.push({ item: it, arr: a }); }
       if (it.type === 'heatpump') { const a = Array.from({ length: T }, (_, t) => { const h = (t + 0.5) * DT; return h >= 6 && h < 9 ? 12 : h >= 9 && h < 16 ? 6 : 1.5; }); add(a); bump('tech', a); }
       if (it.type === 'laptops') { add(L, 1.4); bump('comp', L, 1.4); }
       if (it.type === 'boards') { add(L, 1.5); bump(slot.room, L, 1.5); }
@@ -85,5 +89,5 @@ window.LAB = (() => {
     const cost = r.gl.reduce((x, v, t) => x + v * (t >= 24 && t < 88 ? m.priceHigh : m.priceLow) * DT, 0) - exp * m.feedIn;
     return { ...r, pv, load, cap, kpi: { selfSuff: 100 * (1 - grid / used), selfCons: prod ? 100 * (1 - exp / prod) : 0, grid, exp, cost, used, peak: Math.max(...r.gl) } };
   }
-  return { TYPES, SLOTS, typeById, simulate };
+  return { TYPES, SLOTS, FLEX, typeById, simulate };
 })();

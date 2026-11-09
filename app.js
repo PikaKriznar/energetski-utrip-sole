@@ -490,7 +490,6 @@
     scene.update(sceneData(t, f));
     if (state.view === 'now') renderHint(t, f);
     updateDock();
-    if (labCursors) labCursors.forEach((fn) => fn(t));
     renderPartLive(t, f);
     updateFlow(flowExplore, f);
     if (nowChart) nowChart.moveCursor(t);
@@ -610,7 +609,6 @@
 
   // ---- Dodaj in preizkusi -----------------------------------------------
   const lab = { items: [], weather: 'sunny', sim: null, base: null };
-  let labCursors = null;
   function labFrame(t) {
     const s = lab.sim;
     return { pv: s.pv[t], load: s.load[t], pl: s.pl[t], pb: s.pb[t], pe: s.pe[t], bl: s.bl[t], gl: s.gl[t], soc: s.soc[t] };
@@ -619,56 +617,82 @@
     lab.base = window.LAB.simulate(D, lab.weather, []);
     lab.sim = window.LAB.simulate(D, lab.weather, lab.items);
   }
-  function itemsChanged() {
+  function itemsChanged(describe) {
+    const prev = lab.sim;
     recomputeLab();
     scene.setPlaced(lab.items);
-    paintPalette();
+    paintPalette(); paintTimeline(); paintMission();
+    if (describe) $('#lab-explain').textContent = describe(prev, lab.sim);
     if (state.view === 'lab') { drawLab(); renderLive(); }
   }
-  function removeItem(it) { lab.items = lab.items.filter((x) => x !== it); itemsChanged(); }
+  const SUBJECT = {
+    pv_roof: ['gen', 'Sončni paneli dodajo'], carport: ['gen', 'Solarni nadstrešek doda'], wind: ['gen', 'Mala vetrnica doda'],
+    heatpump: ['use', 'Toplotna črpalka porabi'], laptops: ['use', '30 prenosnikov porabi'], boards: ['use', 'Interaktivne table porabijo'],
+  };
+  const sumKwh = (a) => a.reduce((x, y) => x + y, 0) * D.meta.dt;
+  function gridText(prev, now) {
+    const d = now.kpi.grid - prev.kpi.grid;
+    return Math.abs(d) < 0.5 ? 'energije iz omrežja je skoraj enako' : `iz omrežja je ${fmt(Math.abs(d))} kWh ${d > 0 ? 'več' : 'manj'}`;
+  }
+  function describeAdd(it, prev, now) {
+    const grid = gridText(prev, now), used = now.kpi.used - prev.kpi.used, t = it.type;
+    if (t === 'ebus') return `Električni avtobus se polni ob ${clock(it.start * 4)}: porabi ${fmt(used)} kWh, ${grid}.`;
+    if (t === 'ev') return `Polnilnica polni ob ${clock(it.start * 4)}: porabi ${fmt(used)} kWh, ${grid}.`;
+    if (t === 'battery') return Math.abs(now.kpi.grid - prev.kpi.grid) < 0.5 ? 'Dodatna baterija ne pomaga, ker ni dovolj presežka sonca.' : `Dodatna baterija shrani več presežka, ${grid}.`;
+    if (t === 'led') return `LED razsvetljava prihrani ${fmt(-used)} kWh na dan, ${grid}.`;
+    const [kind, text] = SUBJECT[t];
+    return kind === 'gen' ? `${text} ${fmt(sumKwh(now.pv) - sumKwh(prev.pv))} kWh proizvodnje, ${grid}.` : `${text} ${fmt(used)} kWh na dan, ${grid}.`;
+  }
+  const capital = (s) => s[0].toUpperCase() + s.slice(1);
+  function removeItem(it) { lab.items = lab.items.filter((x) => x !== it); itemsChanged((prev, now) => `Odstranjeno: ${window.LAB.typeById(it.type).name}. ${capital(gridText(prev, now))}.`); }
   const usedSlots = (type) => lab.items.filter((i) => i.type === type).map((i) => i.slot);
   function addItem(type, slot) {
     const used = usedSlots(type), all = window.LAB.SLOTS[type];
     if (slot == null) slot = all.findIndex((_, k) => !used.includes(k));
     if (slot < 0 || used.includes(slot)) return;
-    lab.items.push({ type, slot }); itemsChanged();
+    const item = { type, slot };
+    if (window.LAB.FLEX[type]) item.start = window.LAB.FLEX[type].def(slot);
+    lab.items.push(item); itemsChanged((prev, now) => describeAdd(item, prev, now));
   }
   function paintPalette() {
     document.querySelectorAll('.pal').forEach((b) => { const id = b.dataset.type, n = usedSlots(id).length, max = window.LAB.SLOTS[id].length; b.disabled = n >= max; b.querySelector('em').textContent = `${n}/${max}`; });
   }
-  function lineChart(host, series, H, limit) {
-    host.innerHTML = '';
-    const W = Math.max(220, host.clientWidth || 340), m = { l: 34, r: 6, t: 8, b: 20 };
-    const top = Math.max(10, Math.ceil(Math.max(...series.flatMap((s) => s.arr), limit && Math.max(...series[series.length - 1].arr) > limit ? limit : 0) / 20) * 20);
-    const X = (t) => m.l + (t / (T - 1)) * (W - m.l - m.r), Y = (v) => m.t + (H - m.t - m.b) * (1 - v / top);
-    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, height: H, width: '100%', role: 'img', 'aria-label': series.map((s) => s.name).join(', ') }, host);
-    [0, top / 2, top].forEach((v) => { svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v ? 'var(--grid-line)' : 'var(--axis)' }, svg); svgEl('text', { x: m.l - 5, y: Y(v) + 4, 'text-anchor': 'end' }, svg).textContent = fmt(v); });
-    [0, 6, 12, 18].forEach((h) => { svgEl('text', { x: X(h * 4), y: H - 5, 'text-anchor': h ? 'middle' : 'start' }, svg).textContent = `${h}:00`; });
-    for (const s of series) {
-      const d = s.arr.map((v, t) => `${t ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
-      if (s.area) svgEl('path', { d: `${d}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: s.color, opacity: .2 }, svg);
-      svgEl('path', { d, fill: 'none', stroke: s.color, 'stroke-width': s.dash ? 1.8 : 2.4, 'stroke-dasharray': s.dash || null, 'stroke-linejoin': 'round' }, svg);
-    }
-    const cur = svgEl('line', { y1: m.t, y2: H - m.b, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
-    const hit = svgEl('rect', { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: 'transparent' }, svg);
-    hit.addEventListener('pointermove', (ev) => { const r = svg.getBoundingClientRect(); const t = Math.max(0, Math.min(T - 1, Math.round(((ev.clientX - r.left) * W / r.width - m.l) / (W - m.l - m.r) * (T - 1)))); showTip(ev, `<b>${clock(t)}</b>${series.map((s) => tipRow(s.color, s.name, kw(s.arr[t]))).join('')}`); });
-    hit.addEventListener('pointerleave', () => { tip.hidden = true; });
-    const move = (t) => { cur.setAttribute('x1', X(t)); cur.setAttribute('x2', X(t)); };
-    move(state.t);
-    return move;
+  // Everyday comparisons: a 45 W laptop for a 7-hour school day; a 400 m lap in 2 minutes at 100 W.
+  const SCHOOL_YEAR_DAYS = 190, LAPTOP_DAY_KWH = 0.045 * 7, KWH_TO_LAPS = 1000 / (100 * (2 / 60));
+  const UNITS = {
+    money: { label: '€', tab: 'Denar', value: (dc) => `${signed(dc, 2)} €`, sub: (dc) => `na dan · ${signed(dc * SCHOOL_YEAR_DAYS, 0)} € v šolskem letu` },
+    laptops: { label: '💻', tab: 'Prenosniki', value: (dc, dg) => signed(dg / LAPTOP_DAY_KWH, 0), sub: () => 'prenosnikov za cel šolski dan' },
+    laps: { label: '🏃', tab: 'Krogi', value: (dc, dg) => signed(dg * KWH_TO_LAPS, 0), sub: () => 'krogov teka po stadionu' },
+  };
+  const NOTE = { money: 'Ocena: 190 šolskih dni.', laptops: 'Prenosnik 45 W, 7 ur.', laps: 'Krog 400 m v 2 min pri 100 W.' };
+  function signed(v, d) { const r = Number(v.toFixed(d)); return r === 0 ? fmt(0, d) : `${r > 0 ? '+' : '−'}${fmt(Math.abs(r), d)}`; }
+  lab.unit = 'money';
+  function itemEffects() {
+    const full = lab.sim.kpi, counts = {};
+    return lab.items.map((it) => {
+      const type = window.LAB.typeById(it.type), without = window.LAB.simulate(D, lab.weather, lab.items.filter((x) => x !== it)).kpi;
+      counts[it.type] = (counts[it.type] || 0) + 1;
+      const many = window.LAB.SLOTS[it.type].length > 1 && lab.items.filter((x) => x.type === it.type).length > 1;
+      return { name: many ? `${type.name} ${counts[it.type]}` : type.name, icon: type.icon, dc: full.cost - without.cost, dg: full.grid - without.grid };
+    });
   }
-  const legendOf = (series) => series.map((s) => `<span><i class="sw sw-line" style="background:${s.color}${s.dash ? ';opacity:.6' : ''}"></i>${s.name}</span>`).join('');
   function drawLab() {
-    const a = lab.sim, b = lab.base, ka = a.kpi, kb = b.kpi;
+    const a = lab.sim, b = lab.base, ka = a.kpi, kb = b.kpi, limit = D.meta.gridLimit;
     const row = (name, was, now) => `<div class="lab-kpi"><span>${name}</span><strong><small>${was} →</small>${now}</strong></div>`;
-    const limit = D.meta.gridLimit;
     $('#lab-kpis').innerHTML = row('Samozadostnost', `${fmt(kb.selfSuff)} %`, `${fmt(ka.selfSuff)} %`) + row('Iz omrežja', `${fmt(kb.grid)}`, `${fmt(ka.grid)} kWh`) + row('Strošek dneva', `${fmt(kb.cost, 2)}`, `${fmt(ka.cost, 2)} €`)
       + (ka.peak > limit ? `<p class="lab-warn">⚠ Preobremenitev priključka: ${kw(ka.peak)} (meja ${limit} kW)</p>` : '');
-    const s1 = [{ name: 'Poraba brez dodatkov', arr: b.load, color: '#898781', dash: '5 4' }, { name: 'Poraba', arr: a.load, color: 'var(--load)' }, { name: 'Proizvodnja', arr: a.pv, color: 'var(--pv)' }];
-    const s2 = [{ name: 'Brez dodatkov', arr: b.gl, color: '#898781', dash: '5 4' }, { name: 'Z dodatki', arr: a.gl, color: 'var(--grid)', area: true }];
-    labCursors = [lineChart($('#lab-chart1'), s1, Math.max(130, innerHeight * .2)), lineChart($('#lab-chart2'), s2, Math.max(105, innerHeight * .16), limit)];
-    $('#lab-legend1').innerHTML = legendOf(s1); $('#lab-legend2').innerHTML = legendOf(s2);
+    const unit = UNITS[lab.unit], dc = ka.cost - kb.cost, dg = ka.grid - kb.grid;
+    const effects = itemEffects();
+    const mag = (e) => Math.abs(lab.unit === 'money' ? e.dc : e.dg);
+    const max = Math.max(1e-6, ...effects.map(mag));
+    const tabs = Object.entries(UNITS).map(([id, u]) => `<button data-unit="${id}" aria-pressed="${lab.unit === id}">${u.tab}</button>`).join('');
+    const rows = effects.length ? effects.map((e) => {
+      const more = (lab.unit === 'money' ? e.dc : e.dg) > 0;
+      return `<div class="fx"><span class="fx-icon">${window.machineIcon(e.icon)}</span><div class="fx-body"><div class="fx-head"><span>${e.name}</span><strong>${unit.value(e.dc, e.dg)}</strong></div><div class="fx-track"><i class="${more ? 'up' : 'down'}" style="width:${(100 * mag(e)) / max}%"></i></div></div></div>`;
+    }).join('') : '<p class="tl-empty">Dodajte element in tukaj boste videli njegov vpliv.</p>';
+    $('#lab-effect').innerHTML = `<h2>Kaj to pomeni?</h2><div class="seg fx-tabs">${tabs}</div><p class="fx-total"><strong>${unit.value(dc, dg)}</strong><span>${unit.sub(dc, dg)}</span></p><div class="fx-list">${rows}</div><p class="hint">Plus pomeni več energije iz omrežja ali višji strošek. ${NOTE[lab.unit]}</p>`;
   }
+  $('#lab-effect').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-unit]'); if (b) { lab.unit = b.dataset.unit; drawLab(); } });
   const palette = $('#palette');
   window.LAB.TYPES.forEach((type) => {
     const b = document.createElement('button');
@@ -710,16 +734,110 @@
       addEventListener('blur', onCancel); addEventListener('keydown', onKey);
     });
   });
-  $('#lab-reset').addEventListener('click', () => { lab.items = []; itemsChanged(); });
+  $('#lab-reset').addEventListener('click', () => { lab.items = []; itemsChanged(() => 'Vsi dodatki so odstranjeni.'); });
   function labWeather() {
     const host = $('#lab-weather'); host.innerHTML = '';
     for (const [w, label] of Object.entries(D.meta.weathers)) {
       const b = document.createElement('button'); b.textContent = label; b.setAttribute('aria-pressed', lab.weather === w);
-      b.addEventListener('click', () => { lab.weather = w; labWeather(); itemsChanged(); });
+      b.addEventListener('click', () => { lab.weather = w; labWeather(); itemsChanged(() => `Vreme: ${label}. Številke so preračunane.`); });
       host.appendChild(b);
     }
   }
-  recomputeLab(); labWeather(); paintPalette();
+
+  // ---- Missions -----------------------------------------------------------
+  const pctOf = (v, target) => Math.max(0, Math.min(100, 100 * v / target));
+  const hasType = (id) => lab.items.some((i) => i.type === id);
+  const MISSIONS = [
+    { text: 'Dosezite 90 % samozadostnosti.', weather: 'sunny', check: (a) => ({ now: `Zdaj ${fmt(a.kpi.selfSuff)} % · cilj 90 %`, pct: pctOf(a.kpi.selfSuff, 90), ok: a.kpi.selfSuff >= 90 }) },
+    { text: 'Napolnite električni avtobus brez dodatne energije iz omrežja.', weather: 'sunny', check: (a, b) => (hasType('ebus')
+      ? { now: `Iz omrežja ${fmt(a.kpi.grid)} kWh · največ ${fmt(b.kpi.grid)} kWh`, pct: pctOf(b.kpi.grid, a.kpi.grid), ok: a.kpi.grid <= b.kpi.grid }
+      : { now: 'Najprej dodajte električni avtobus.', pct: 0, ok: false }) },
+    { text: 'Znižajte strošek dneva pod 10 €.', weather: 'sunny', check: (a, b) => ({ now: `Zdaj ${fmt(a.kpi.cost, 2)} € · cilj pod 10 €`, pct: pctOf(b.kpi.cost - a.kpi.cost, b.kpi.cost - 10), ok: a.kpi.cost < 10 }) },
+    { text: 'Dodajte 30 prenosnikov, energije iz omrežja pa naj ne bo več kot prej.', weather: 'sunny', check: (a, b) => (hasType('laptops')
+      ? { now: `Iz omrežja ${fmt(a.kpi.grid)} kWh · največ ${fmt(b.kpi.grid)} kWh`, pct: pctOf(b.kpi.grid, a.kpi.grid), ok: a.kpi.grid <= b.kpi.grid }
+      : { now: 'Najprej dodajte prenosnike.', pct: 0, ok: false }) },
+    { text: 'Oblačen dan: dosezite 40 % samozadostnosti.', weather: 'cloudy', check: (a) => ({ now: `Zdaj ${fmt(a.kpi.selfSuff)} % · cilj 40 %`, pct: pctOf(a.kpi.selfSuff, 40), ok: a.kpi.selfSuff >= 40 }) },
+  ];
+  lab.mission = 0; lab.done = new Set();
+  function paintMission() {
+    const m = MISSIONS[lab.mission], host = $('#lab-mission'), limit = D.meta.gridLimit;
+    const r = m.check(lab.sim, lab.base), wrongWeather = lab.weather !== m.weather, over = lab.sim.kpi.peak > limit;
+    const ok = r.ok && !wrongWeather && !over;
+    if (ok) lab.done.add(lab.mission);
+    const done = ok || lab.done.has(lab.mission);
+    host.classList.toggle('done', done);
+    const status = ok ? '✓ Izziv opravljen' : wrongWeather ? `Izziv velja za vreme: ${D.meta.weathers[m.weather]}.` : over ? `⚠ Preobremenjen priključek (${kw(lab.sim.kpi.peak)}).` : r.now;
+    host.innerHTML = `<div class="mission-head"><span>Izziv ${lab.mission + 1}/${MISSIONS.length} · opravljenih ${lab.done.size}</span><span><button data-d="-1" aria-label="Prejšnji izziv">‹</button><button data-d="1" aria-label="Naslednji izziv">›</button></span></div><b>${m.text}</b><div class="mission-status">${status}</div><div class="mission-track"><i style="width:${ok ? 100 : r.pct}%"></i></div>`;
+  }
+  $('#lab-mission').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-d]'); if (!b) return;
+    lab.mission = (lab.mission + Number(b.dataset.d) + MISSIONS.length) % MISSIONS.length;
+    const m = MISSIONS[lab.mission];
+    if (lab.weather !== m.weather) { lab.weather = m.weather; labWeather(); itemsChanged(() => `Izziv uporablja vreme: ${D.meta.weathers[m.weather]}.`); } else paintMission();
+  });
+
+  // ---- Charging-time timeline ----------------------------------------------
+  const TL_FROM = 6, TL_SPAN = 12;
+  const tlPct = (h) => ((h - TL_FROM) / TL_SPAN) * 100;
+  function applyStart(it, h, block) {
+    it.start = h;
+    const f = window.LAB.FLEX[it.type];
+    block.style.left = `${tlPct(h)}%`; block.textContent = clock(h * 4);
+    block.setAttribute('aria-label', `${f.label}, začetek polnjenja ${clock(h * 4)}`);
+    recomputeLab();
+    paintMission();
+    if (state.view === 'lab') { drawLab(); renderLive(); }
+  }
+  function timeText(it, old, prev) { return `${window.LAB.FLEX[it.type].label}: polnjenje ob ${clock(it.start * 4)} namesto ${clock(old * 4)}, ${gridText(prev, lab.sim)}.`; }
+  function paintTimeline() {
+    const host = $('#lab-timeline'), flex = lab.items.filter((i) => window.LAB.FLEX[i.type]);
+    $('#lab-best').hidden = !flex.length;
+    host.innerHTML = '';
+    if (!flex.length) { host.innerHTML = '<p class="tl-empty">Dodajte električni avtobus ali polnilnico in izberite, kdaj se polni.</p>'; return; }
+    const rows = document.createElement('div'); rows.className = 'tl-rows'; host.appendChild(rows);
+    const pv = D.scenarios[lab.weather].pv, peak = Math.max(40, ...pv), from = TL_FROM * 4, to = (TL_FROM + TL_SPAN) * 4;
+    let d = `M0 40`;
+    for (let t = from; t <= to; t++) d += `L${(((t - from) / (to - from)) * 100).toFixed(1)} ${(40 - (pv[Math.min(t, T - 1)] / peak) * 38).toFixed(1)}`;
+    const sun = svgEl('svg', { class: 'tl-sun', viewBox: '0 0 100 40', preserveAspectRatio: 'none', 'aria-hidden': 'true' }, rows);
+    svgEl('path', { d: `${d}L100 40Z`, fill: '#eda100', opacity: .28 }, sun);
+    const counts = {};
+    flex.forEach((it) => {
+      const f = window.LAB.FLEX[it.type];
+      counts[it.type] = (counts[it.type] || 0) + 1;
+      const row = document.createElement('div'); row.className = 'tl-row';
+      row.innerHTML = `<span>${f.label} ${counts[it.type]}</span><div class="tl-track"><i class="tl-win" style="left:${tlPct(f.min)}%;width:${(100 * (f.max + f.dur - f.min)) / TL_SPAN}%"></i><button class="tl-block" style="left:${tlPct(it.start)}%;width:${(100 * f.dur) / TL_SPAN}%;background:${f.color}"></button></div>`;
+      rows.appendChild(row);
+      const track = row.querySelector('.tl-track'), block = row.querySelector('.tl-block');
+      block.textContent = clock(it.start * 4);
+      block.setAttribute('aria-label', `${f.label}, začetek polnjenja ${clock(it.start * 4)}`);
+      const snap = (h) => Math.max(f.min, Math.min(f.max, Math.round(h * 4) / 4));
+      let drag = null;
+      const move = (ev) => { if (!drag) return; const r = track.getBoundingClientRect(); const h = snap(TL_FROM + ((ev.clientX - r.left) / r.width) * TL_SPAN - f.dur / 2); if (h !== it.start) applyStart(it, h, block); };
+      const up = () => { if (!drag) return; const { old, prev } = drag; drag = null; removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); if (it.start !== old) $('#lab-explain').textContent = timeText(it, old, prev); };
+      block.addEventListener('pointerdown', (ev) => { ev.preventDefault(); drag = { old: it.start, prev: lab.sim }; addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); });
+      block.addEventListener('keydown', (ev) => {
+        const step = ev.key === 'ArrowRight' ? 0.25 : ev.key === 'ArrowLeft' ? -0.25 : 0; if (!step) return;
+        ev.preventDefault(); const h = snap(it.start + step); if (h === it.start) return;
+        const old = it.start, prev = lab.sim; applyStart(it, h, block); $('#lab-explain').textContent = timeText(it, old, prev);
+      });
+    });
+    const axis = document.createElement('div'); axis.className = 'tl-axis';
+    axis.innerHTML = [6, 9, 12, 15, 18].map((h) => `<span style="left:${tlPct(h)}%">${h}:00</span>`).join('');
+    host.appendChild(axis);
+  }
+  // Simple search: tries every allowed start for each charger in turn. It approximates, and does not replace, the MILP.
+  $('#lab-best').addEventListener('click', () => {
+    const flex = lab.items.filter((i) => window.LAB.FLEX[i.type]);
+    for (let pass = 0; pass < 2; pass++) for (const it of flex) {
+      const f = window.LAB.FLEX[it.type];
+      let best = it.start, cost = Infinity;
+      for (let h = f.min; h <= f.max + 1e-9; h += 0.25) { it.start = h; const c = window.LAB.simulate(D, lab.weather, lab.items).kpi.cost; if (c < cost - 1e-6) { cost = c; best = h; } }
+      it.start = best;
+    }
+    itemsChanged((prev, now) => `Predlagani časi polnjenja: ${gridText(prev, now)}. To je približek, ne rezultat MILP.`);
+  });
+  recomputeLab(); labWeather(); paintPalette(); paintTimeline(); paintMission();
+  $('#lab-explain').textContent = 'Povlecite model na šolo in tukaj boste videli, kaj se je spremenilo.';
 
   // ---- Recommendation line --------------------------------------------
   const TASK_PHRASE = { bake: 'peko peciva', cook: 'kuhanje kosila', dish: 'pomivanje po kosilu', cool: 'predhlajenje hladilnice', wash: 'pranje tekstilij' };
@@ -796,7 +914,7 @@
     document.body.classList.toggle('v-lab', v === 'lab');
     scene.setActive(stage3d);
     scene.setLab(v === 'lab');
-    scene.setFreeArea(v === 'lab' ? $('#lab-free') : $('#stage-free'));
+    scene.setFreeArea(v === 'lab' ? $('#lab-model') : $('#stage-free'));
     scene.resize();
     tip.hidden = true;
     redraw();
@@ -847,8 +965,8 @@
 
   paintMode();
   setView('now');
-  import('./school3d.js?v=14').then((m) => {
-    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
+  import('./school3d.js?v=18').then((m) => {
+    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-model') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);
     labDemo();
