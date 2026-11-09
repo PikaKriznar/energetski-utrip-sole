@@ -162,7 +162,7 @@ body.v-now { -webkit-user-select: none; user-select: none; }
 .tag span { font-size: .72em; color: var(--ink-2); }
 .tag strong { font-size: 1.15em; }
 .stage { position: relative; z-index: 1; pointer-events: none; height: 100%; }
-.own-pill { position: absolute; left: 0; top: 4px; display: flex; align-items: baseline; gap: .4em; background: rgba(255,255,255,.9); border-radius: 14px; padding: .25em .8em; box-shadow: 0 8px 26px rgba(30,64,110,.13); }
+.own-pill { display: flex; align-items: baseline; gap: .4em; background: rgba(255,255,255,.9); border-radius: 14px; padding: .25em .8em; box-shadow: 0 8px 26px rgba(30,64,110,.13); }
 .own-pill strong { font-size: clamp(1.8rem, 2.6vw, 3.6rem); font-weight: 800; letter-spacing: -.03em; }
 .own-pill span { color: var(--ink-2); }
 .dock-wrap { position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: 8px; pointer-events: auto; max-width: 100%; }
@@ -209,7 +209,8 @@ body.v-now { -webkit-user-select: none; user-select: none; }
   .explore-grid, .two, .verdict { grid-template-columns: minmax(0, 1fr); }
   #stage3d { position: relative; inset: auto; height: 92vw; max-height: 62vh; min-height: 340px; margin-bottom: var(--gap); }
   .stage { height: auto; display: flex; flex-direction: column; gap: var(--gap); }
-  .own-pill, .dock-wrap { position: static; transform: none; align-self: center; }
+  .now-top, .mode-bar, .dock-wrap { position: static; transform: none; align-self: center; }
+  .now-top { align-items: center; }
   .graphs { grid-template-columns: minmax(0, 1fr); }
   .flow svg, #flow-explore svg { max-height: none; }
   .player-note { display: none; }
@@ -286,3 +287,27 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 .tag.top { outline: 2px solid #ffd166; }
 .tag-lab .kw { font-style: normal; font-weight: 800; color: #b42318; font-size: 1.05em; }
 .tag-lab { grid-template-columns: auto auto auto; }
+.own-pill { margin: 0; align-self: flex-start; }
+.now-top { position: absolute; left: 0; top: 4px; display: flex; flex-direction: column; gap: 6px; max-width: min(340px, 30vw); pointer-events: auto; }
+.hint-pill { border: 0; text-align: left; background: rgba(255,255,255,.94); border-left: 5px solid #eda100; border-radius: 12px; padding: .4em .8em; font-weight: 650; line-height: 1.25; box-shadow: 0 8px 26px rgba(30,64,110,.13); min-height: 44px; }
+.mode-bar { position: absolute; right: 0; top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: auto; max-width: min(360px, 30vw); }
+.mode-bar .seg { background: rgba(255,255,255,.94); box-shadow: 0 8px 26px rgba(30,64,110,.13); flex-wrap: nowrap; }
+.mode-bar .seg button { min-height: 40px; }
+.mode-bar .seg button[aria-pressed=true] { background: #101828; color: #fff; }
+#mode-result { background: rgba(255,255,255,.9); border-radius: 10px; padding: 3px 10px; font-size: .9em; text-align: right; font-weight: 600; line-height: 1.25; margin: 0; }
+#mode-result em { font-style: normal; color: #4a5568; display: block; font-weight: 500; }
+.invite { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 6px; background: #101828; color: #fff; border-radius: 99px; padding: 5px 12px 5px 7px; font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 400000; box-shadow: 0 6px 18px rgba(16,24,40,.35); }
+.invite i { font-style: normal; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #ffd166; animation: invite 1.2s ease-out infinite; }
+@keyframes invite { 0% { box-shadow: 0 0 0 0 rgba(255,209,102,.8); } 100% { box-shadow: 0 0 0 16px rgba(255,209,102,0); } }
+.tag.flash { animation: tagflash .7s ease-in-out 4; }
+@keyframes tagflash { 50% { box-shadow: 0 0 0 6px #ffd166; } }
+.drag-demo { position: fixed; left: 0; top: 0; width: 92px; height: 92px; z-index: 30; pointer-events: none; filter: drop-shadow(0 8px 12px rgba(30,64,110,.35)); }
+.drag-demo span { position: absolute; right: 2px; bottom: 0; font-size: 30px; }
+@media (max-width: 960px) {
+  .now-top, .mode-bar { position: static; max-width: 100%; align-items: center; }
+  #mode-result { text-align: center; }
+  .hint-pill { text-align: center; }
+  .own-pill { align-self: center; }
+}
+@media (prefers-reduced-motion: reduce) { .invite i, .tag.flash { animation: none; } }
+@media (max-width: 620px) { .tag[data-room] strong { font-size: 1.05em; } .tag.top::before { display: none; } }

@@ -6,7 +6,7 @@
   const COLORS = { pv: 'var(--pv)', bat: 'var(--bat)', grid: 'var(--grid)', load: 'var(--load)' };
   const LIVE = { weather: 'sunny', cap: 100, key: 'base' };
 
-  const state = { part: 'school', view: 'now', t: 40, playing: true, weather: 'sunny', cap: 100, kitchen: 'milpShift', selected: 'pv' };
+  const state = { mode: 'base', part: 'school', view: 'now', t: 40, playing: true, weather: 'sunny', cap: 100, kitchen: 'milpShift', selected: 'pv' };
 
   // ---- Helpers ---------------------------------------------------------
   const fmt = (x, d = 0) => Number(x).toLocaleString('sl-SI', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -19,7 +19,8 @@
     return e;
   };
   const scenario = (w, cap, key) => D.scenarios[w].byCap[cap][key];
-  const liveSc = () => scenario(LIVE.weather, LIVE.cap, LIVE.key);
+  const curKey = () => (state.view === 'now' ? state.mode : LIVE.key);
+  const liveSc = () => scenario(LIVE.weather, LIVE.cap, curKey());
   const livePv = () => D.scenarios[LIVE.weather].pv;
 
   function frame(t) {
@@ -181,7 +182,7 @@
   }
 
   // ---- Live views ------------------------------------------------------
-  let scene = { update() {}, select() {}, setActive() {}, resize() {}, hold() {}, setPlaced() {}, setLab() {}, setFreeArea() {}, beginDrag() {}, dragOver() { return null; }, endDrag() {} };
+  let scene = { update() {}, select() {}, setActive() {}, resize() {}, hold() {}, setPlaced() {}, setLab() {}, setFreeArea() {}, beginDrag() {}, dragOver() { return null; }, endDrag() {}, flash() {}, slotPoint() { return null; } };
   const flowExplore = createFlow($('#flow-explore'), true);
   let nowChart = null;
 
@@ -238,8 +239,8 @@
     { id: 'tech', short: 'Tehnika', name: 'Tehnična soba', color: '#d99a00', text: 'Razsmernik, prezračevanje in skupne naprave.', room: true },
   ];
   const partById = (id) => PARTS.find((p) => p.id === id);
-  function partData(id) {
-    const s = liveSc().series, range = Array.from({ length: T }, (_, i) => i);
+  function partData(id, key) {
+    const s = (key ? scenario(LIVE.weather, LIVE.cap, key) : liveSc()).series, range = Array.from({ length: T }, (_, i) => i);
     if (id === 'bat') return { arr: s.soc, bars: range.map((t) => s.pb[t] + s.bl[t]), unit: '%', top: 100, chartTitle: 'Napolnjenost skozi dan', barsTitle: 'Polnjenje in praznjenje po urah' };
     if (id === 'pv') return { arr: livePv(), bars: livePv(), unit: 'kW', chartTitle: 'Proizvodnja skozi dan', barsTitle: 'Proizvedena energija po urah' };
     if (id === 'grid') { const a = range.map((t) => s.gl[t] + s.pe[t]); return { arr: a, bars: a, unit: 'kW', chartTitle: 'Izmenjava z omrežjem skozi dan', barsTitle: 'Izmenjana energija po urah' }; }
@@ -350,9 +351,10 @@
   const TASK_ICON = { bake: 'oven', cook: 'kettle', dish: 'dishwasher', cool: 'fridge', wash: 'washer' };
   const PART_ICON = { kitchen: 'oven', classA: 'projector', classB: 'projector', comp: 'pc', gym: 'ball', tech: 'inverter', pv: 'panel', bat: 'battery', grid: 'pylon', school: 'school' };
   const machineCache = {};
-  function machinesFor(id) {
-    if (machineCache[id]) return machineCache[id];
-    const d = partData(id), s = liveSc();
+  function machinesFor(id, key = curKey()) {
+    const cacheKey = `${key}:${id}`;
+    if (machineCache[cacheKey]) return machineCache[cacheKey];
+    const d = partData(id, key), s = scenario(LIVE.weather, LIVE.cap, key);
     let list;
     if (id === 'kitchen') {
       const tasks = D.tasks.map((task, i) => ({ id: task.id, name: task.device, icon: TASK_ICON[task.id], arr: Array.from({ length: T }, (_, t) => (t >= s.starts[i] && t < s.starts[i] + task.dur ? task.power : 0)) }));
@@ -362,8 +364,8 @@
     else if (id === 'pv') list = [{ name: 'Sončni paneli', icon: 'panel', arr: d.arr }];
     else if (id === 'bat') list = [{ name: 'Baterijski sklop', icon: 'battery', arr: d.arr, unit: '%' }];
     else if (id === 'grid') list = [{ name: 'Priključek', icon: 'pylon', arr: d.arr }];
-    else list = PARTS.filter((p) => p.id !== 'school').map((p) => ({ name: p.short, icon: PART_ICON[p.id], part: p.id, arr: partData(p.id).arr, unit: partData(p.id).unit }));
-    return (machineCache[id] = list);
+    else list = PARTS.filter((p) => p.id !== 'school').map((p) => ({ name: p.short, icon: PART_ICON[p.id], part: p.id, arr: partData(p.id, key).arr, unit: partData(p.id, key).unit }));
+    return (machineCache[cacheKey] = list);
   }
   const fmtM = (m, t) => (m.unit === '%' ? `${fmt(m.arr[t])} %` : m.arr[t] < 10 ? `${fmt(m.arr[t], 1)} kW` : kw(m.arr[t]));
   function spark(host, arr, color, t, Ht = 54) {
@@ -407,9 +409,9 @@
     });
     updateDock();
   }
-  function dayGraph(host, arr, color, t) {
+  function dayGraph(host, arr, color, t, cmp) {
     const W = Math.max(240, host.clientWidth || 700), H = 78, m = { l: 34, r: 8, t: 8, b: 16 };
-    const top = Math.max(1, Math.ceil(Math.max(...arr)));
+    const top = Math.max(1, Math.ceil(Math.max(...arr, ...(cmp || []))));
     const X = (i) => m.l + (i / (T - 1)) * (W - m.l - m.r), Y = (v) => H - m.b - (v / top) * (H - m.t - m.b);
     host.innerHTML = '';
     const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, height: H, width: '100%', role: 'img', 'aria-label': 'Potek skozi dan' }, host);
@@ -421,6 +423,7 @@
     const path = arr.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join('');
     svgEl('path', { d: `${path}L${X(T - 1)} ${Y(0)}L${X(0)} ${Y(0)}Z`, fill: color, opacity: .24 }, svg);
     svgEl('path', { d: path, fill: 'none', stroke: color, 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, svg);
+    if (cmp) svgEl('path', { d: cmp.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(''), fill: 'none', stroke: '#6b7280', 'stroke-width': 1.6, 'stroke-dasharray': '5 4' }, svg);
     svgEl('line', { x1: X(t), x2: X(t), y1: m.t, y2: Y(0), stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
     svgEl('circle', { cx: X(t), cy: Y(arr[t]), r: 4.5, fill: color, stroke: '#fff', 'stroke-width': 2 }, svg);
     const hit = svgEl('rect', { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: 'transparent' }, svg);
@@ -434,8 +437,12 @@
     const host = $('#dock-graph');
     if (!host.firstChild) host.innerHTML = '<b></b><span></span><div class="dg"></div>';
     host.children[0].textContent = m ? m.name : p.name;
-    host.children[1].textContent = `${m ? 'Moč skozi dan' : d.chartTitle} (${d.unit})`;
-    dayGraph(host.children[2], m ? m.arr : d.arr, p.color, state.t);
+    const other = state.mode === 'base' ? 'milpShift' : 'base';
+    const arr = m ? m.arr : d.arr;
+    let cmp = m ? (machinesFor(p.id, other).find((x) => x.name === m.name) || {}).arr : partData(p.id, other).arr;
+    if (!cmp || cmp.every((v, i) => Math.abs(v - arr[i]) < 0.05)) cmp = null;
+    host.children[1].textContent = `${m ? 'Moč skozi dan' : d.chartTitle} (${d.unit})${cmp ? ` · črtkano: ${other === 'base' ? 'običajno' : 'optimizirano'}` : ''}`;
+    dayGraph(host.children[2], arr, p.color, state.t, cmp);
   }
   function updateDock() {
     dockEls.forEach(({ b, m }) => { b.querySelector('strong').textContent = fmtM(m, state.t); });
@@ -481,6 +488,7 @@
     $('#clock').textContent = clock(t);
     $('#scrub').value = t;
     scene.update(sceneData(t, f));
+    if (state.view === 'now') renderHint(t, f);
     updateDock();
     if (labCursors) labCursors.forEach((fn) => fn(t));
     renderPartLive(t, f);
@@ -713,6 +721,73 @@
   }
   recomputeLab(); labWeather(); paintPalette();
 
+  // ---- Recommendation line --------------------------------------------
+  const TASK_PHRASE = { bake: 'peko peciva', cook: 'kuhanje kosila', dish: 'pomivanje po kosilu', cool: 'predhlajenje hladilnice', wash: 'pranje tekstilij' };
+  const INVITES = { kitchen: 'kuhinje', classA: 'učilnic', classB: 'učilnic', comp: 'računalnice', gym: 'telovadnice', tech: 'tehnične sobe', pv: 'sončne elektrarne', bat: 'baterije', grid: 'omrežja' };
+  let hintTarget = 'school';
+  function hintFor(t, f) {
+    const surplus = f.pe + f.pb;
+    if (surplus >= 0.5) {
+      const opt = scenario(LIVE.weather, LIVE.cap, 'milpShift').starts;
+      const options = D.tasks.map((d, i) => ({ d, gap: Math.abs(opt[i] - t) })).filter(({ d }) => t >= d.s_min && t <= d.s_max && d.power <= surplus).sort((a, b) => a.gap - b.gap);
+      if (options.length) return { text: `Sonca je dovolj: zdaj je dober čas za ${TASK_PHRASE[options[0].d.id]}.`, part: 'kitchen' };
+      return f.pb > 0.5 ? { text: 'Sonca je dovolj: baterija se polni.', part: 'bat' } : { text: 'Sonca je dovolj: presežek oddajamo v omrežje.', part: 'grid' };
+    }
+    const pv = livePv(), s = liveSc().series;
+    for (let i = t + 1; i < Math.min(T, t + 13); i++) if (pv[i] >= D.base[i] + s.kit[i]) return { text: `Več sonca bo okoli ${clock(i)}.`, part: 'pv' };
+    return f.bl > 0.5 ? { text: 'Šolo zdaj napaja baterija.', part: 'bat' } : { text: 'Zdaj energijo dobivamo iz omrežja.', part: 'grid' };
+  }
+  function renderHint(t, f) {
+    const h = hintFor(t, f), el = $('#hint');
+    hintTarget = h.part;
+    if (el.textContent !== h.text) el.textContent = h.text;
+  }
+  $('#hint').addEventListener('click', () => { scene.select(hintTarget); selectPart(hintTarget); });
+
+  // ---- Običajno / Optimizirano ------------------------------------------
+  const MODES = [['base', 'Običajno'], ['milpShift', 'Optimizirano']];
+  let lastModeTouch = 0, modeNote;
+  function paintMode(note) {
+    const seg = $('#mode-seg'); seg.innerHTML = '';
+    for (const [m, label] of MODES) {
+      const b = document.createElement('button'); b.textContent = label; b.setAttribute('aria-pressed', state.mode === m);
+      b.addEventListener('click', () => { lastModeTouch = Date.now(); scene.hold(); setMode(m); });
+      seg.appendChild(b);
+    }
+    const a = scenario(LIVE.weather, LIVE.cap, 'base').kpi, b = scenario(LIVE.weather, LIVE.cap, 'milpShift').kpi;
+    $('#mode-result').innerHTML = `Z optimizacijo: +${fmt(b.self_suff - a.self_suff, 1)} odstotne točke samozadostnosti · ${fmt(a.cost - b.cost, 2)} € manj na dan${note ? '<em>Spremenita se kuhinja in baterija.</em>' : ''}`;
+  }
+  function setMode(m) {
+    state.mode = m;
+    closePop(); renderDock(); paintMode(true);
+    clearTimeout(modeNote); modeNote = setTimeout(() => paintMode(false), 3500);
+    scene.flash(['kitchen', 'bat']);
+    renderLive();
+  }
+
+  // ---- One-time drag demonstration --------------------------------------
+  let demoDone = false, demo = null;
+  function stopDemo() { if (!demo) return; demo.anim.cancel(); demo.el.remove(); scene.endDrag(); demo = null; }
+  document.addEventListener('pointerdown', stopDemo, true);
+  function labDemo() {
+    if (demoDone || state.view !== 'lab' || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setTimeout(() => {
+      if (demoDone || state.view !== 'lab') return;
+      const type = 'carport', used = usedSlots(type), slot = window.LAB.SLOTS[type].findIndex((_, k) => !used.includes(k));
+      const point = slot >= 0 ? scene.slotPoint(type, slot) : null, card = document.querySelector(`.pal[data-type=${type}]`);
+      if (!point || !card) return;
+      demoDone = true;
+      const r = card.getBoundingClientRect(), el = document.createElement('div');
+      el.className = 'drag-demo'; el.innerHTML = `${window.machineIcon('carport')}<span>👆</span>`;
+      document.body.appendChild(el);
+      scene.beginDrag(type, used);
+      const from = `translate(${r.left + r.width / 2 - 46}px, ${r.top + r.height / 2 - 46}px)`, to = `translate(${point.x - 46}px, ${point.y - 46}px)`;
+      const anim = el.animate([{ transform: from, opacity: 1 }, { transform: to, opacity: 1, offset: 0.75 }, { transform: to, opacity: 0 }], { duration: 2600, easing: 'ease-in-out' });
+      demo = { el, anim };
+      anim.onfinish = () => { el.remove(); scene.endDrag(); demo = null; };
+    }, 1200);
+  }
+
   // ---- App shell -------------------------------------------------------
   function setView(v) {
     state.view = v;
@@ -728,6 +803,7 @@
     scene.resize();
     tip.hidden = true;
     redraw();
+    labDemo();
   }
   function redraw() {
     if (state.view === 'explore') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: 210, ymax: 100, cursor: true }); drawPart(); }
@@ -745,7 +821,12 @@
   $('#play').addEventListener('click', () => setPlaying(!state.playing));
   $('#scrub').addEventListener('input', (e) => { setPlaying(false); state.t = +e.target.value; renderLive(); });
   document.querySelectorAll('[data-time]').forEach((b) => b.addEventListener('click', () => { setPlaying(false); state.t = +b.dataset.time; renderLive(); }));
-  setInterval(() => { if (state.playing && state.view !== 'better') { state.t = (state.t + 1) % T; renderLive(); } }, 1000);
+  setInterval(() => {
+    if (!state.playing || state.view === 'better') return;
+    state.t = (state.t + 1) % T;
+    if (state.t === 0 && state.view === 'now' && Date.now() - lastModeTouch > 120000) setMode(state.mode === 'base' ? 'milpShift' : 'base');
+    else renderLive();
+  }, 1000);
 
   segmented($('#c-weather'), Object.entries(D.meta.weathers), 'weather');
   segmented($('#c-cap'), D.meta.capacities.map((c) => [c, c ? `${c} kWh` : 'Brez']), 'cap');
@@ -767,11 +848,13 @@
     reset();
   }
 
+  paintMode(false);
   setView('now');
-  import('./school3d.js?v=9').then((m) => {
-    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem });
+  import('./school3d.js?v=11').then((m) => {
+    scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);
+    labDemo();
     renderDock();
     renderLive();
   }).catch((err) => { console.error(err); $('#stage-error').hidden = false; });

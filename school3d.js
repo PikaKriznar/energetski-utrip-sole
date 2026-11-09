@@ -320,6 +320,11 @@ export function createSchool3D(host, tagsHost, api) {
   }
 
   // Selection
+  let lastInteract = performance.now(), inviteDelay = 8000;
+  const invite = document.createElement('div');
+  invite.className = 'invite'; invite.hidden = true;
+  invite.innerHTML = '<i>👆</i><span></span>';
+  tagsHost.appendChild(invite);
   let labOn = false, selected = null, mode = 'tour', tourIndex = -1, idleTimer, lastHover = null;
   const tourOrder = api.parts.map((p) => p.id);
   function applySelection(id) {
@@ -336,6 +341,7 @@ export function createSchool3D(host, tagsHost, api) {
     applySelection(tourOrder[tourIndex]);
   }
   function holdUser() {
+    lastInteract = performance.now(); inviteDelay = 25000;
     mode = 'user'; controls.autoRotate = false;
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => { if (labOn) return; mode = 'tour'; controls.autoRotate = true; }, 10000);
@@ -506,6 +512,13 @@ export function createSchool3D(host, tagsHost, api) {
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
       t.el.style.zIndex = Math.round((1 - temp.z) * 100000) + (t.el.classList.contains('top') ? 200000 : 0);
     }
+    const inviteName = !labOn && mode === 'tour' && performance.now() - lastInteract > inviteDelay && TAG_POS[selected] ? api.invites[selected] : null;
+    invite.hidden = !inviteName;
+    if (inviteName) {
+      invite.children[1].textContent = `Dotakni se ${inviteName}`;
+      temp.set(...TAG_POS[selected]).add(root.position).project(camera);
+      invite.style.transform = `translate(-50%, 8px) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
+    }
     for (const t of placedTags) {
       temp.copy(t.pos).project(camera);
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
@@ -548,6 +561,12 @@ export function createSchool3D(host, tagsHost, api) {
   return {
     update, resize,
     select(id) { holdUser(); applySelection(id); },
+    flash(ids) { ids.forEach((id) => { const el = tags[id].el; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 3000); }); },
+    slotPoint(type, key) {
+      const r = canvas.getBoundingClientRect(), s = window.LAB.SLOTS[type][key];
+      temp.set(s.x, s.y, s.z).add(root.position).project(camera);
+      return { x: r.left + ((temp.x + 1) / 2) * r.width, y: r.top + ((1 - temp.y) / 2) * r.height };
+    },
     hold: holdUser, setPlaced, beginDrag, dragOver, endDrag, setLab,
     setFreeArea(el) { freeEl = el; },
     setActive(v) { active = v; if (v) { clock.getDelta(); resize(); } },
