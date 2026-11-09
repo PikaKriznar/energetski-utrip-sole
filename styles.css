@@ -177,3 +177,4 @@ td.opt { font-weight: 700; }
   .edge-flow { animation: none; stroke-dasharray: none; }
   .track i { transition: none; }
 }
+.big-share strong, .meter-head strong { white-space: nowrap; }
