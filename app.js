@@ -181,7 +181,7 @@
   }
 
   // ---- Live views ------------------------------------------------------
-  const flowNow = createFlow($('#flow-now'), false);
+  const scene = window.SchoolScene.create($('#scene'), $('#ct-card'), $('#ct-rooms'), { D, fmt, kw, getSc: liveSc });
   const flowExplore = createFlow($('#flow-explore'), true);
   let nowChart = null;
 
@@ -241,7 +241,7 @@
     $('#b-sc').style.width = `${c.sc ?? 0}%`;
     $('#clock').textContent = clock(t);
     $('#scrub').value = t;
-    updateFlow(flowNow, f);
+    scene.update(t, f);
     updateFlow(flowExplore, f);
     if (nowChart) nowChart.moveCursor(t);
     $('#explain').innerHTML = TOPICS[state.selected].html(f);

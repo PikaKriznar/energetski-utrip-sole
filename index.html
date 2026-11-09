@@ -32,7 +32,16 @@
   <main>
     <section id="view-now" class="view" role="tabpanel" aria-labelledby="tab-now">
       <div class="now-grid">
-        <div class="card flow-card"><div id="flow-now" class="flow"></div></div>
+        <div class="card scene-card">
+          <div class="scene-wrap">
+            <div id="scene"></div>
+            <aside id="ct-card" hidden></aside>
+          </div>
+          <div class="scene-foot">
+            <p class="hint">Premaknite kazalec čez šolo ali izberite prostor:</p>
+            <div class="chips" id="ct-rooms" role="group" aria-label="CT pogled po prostorih"></div>
+          </div>
+        </div>
         <div class="card headline-card">
           <p class="eyebrow">Ta trenutek</p>
           <p class="big-share"><strong id="share">–</strong><span>porabe šole pokriva lastna energija</span></p>
@@ -149,6 +158,7 @@
   <div id="tip" role="status" hidden></div>
 
   <script src="data.js"></script>
+  <script src="scene.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
