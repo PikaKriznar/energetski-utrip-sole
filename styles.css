@@ -263,7 +263,6 @@ body.v-now .kpis { display: none; }
 .tag-lab span { font-size: .78em; }
 .tag-lab strong { font-size: 1em; color: #9a2500; }
 body:not(.v-now) #stage3d { display: none; }
-body.v-lab .tag[data-room] { display: none; }
 @media (max-width: 960px) {
   .lab-stage { display: flex; flex-direction: column; height: auto; }
   .lab-free { display: none; }
@@ -279,3 +278,10 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
   body .dock-wrap { flex-direction: column; }
   #dock-graph { flex: none; }
 }
+.tag[data-room] { background: #d92d20; color: #fff; border-left-color: #7a1209; }
+.tag[data-room] span { color: #ffe9e6; font-weight: 600; }
+.tag[data-room] strong { font-size: 1.45em; }
+.tag.on[data-room] { background: #d92d20; box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(30,64,110,.3); }
+.tag.top::before { content: 'Največja poraba'; display: block; grid-column: 1 / -1; color: #101828; background: #ffd166; border-radius: 4px; padding: 0 5px; margin: 2px 0; font-size: .72em; font-weight: 800; text-align: center; }
+.tag.top { outline: 2px solid #ffd166; }
+.tag-lab .kw { font-style: normal; font-weight: 800; color: #b42318; font-size: 1.05em; }

@@ -331,11 +331,17 @@
   function sceneData(t, f) {
     const loads = { kitchen: liveSc().series.kit[t] };
     for (const k in D.rooms) loads[k] = D.rooms[k].reduce((x, m) => x + m.arr[t], 0);
+    const inLab = state.view === 'lab' && lab.sim;
+    if (inLab) for (const k in lab.sim.roomAdd) loads[k] = Math.max(0, loads[k] + lab.sim.roomAdd[k][t]);
+    const extras = inLab ? lab.sim.extras.map((e) => ({ item: e.item, kw: e.arr[t], value: kw(e.arr[t]) })) : [];
+    let top = {}, topKw = -1;
+    for (const k in loads) if (loads[k] > topKw) { topKw = loads[k]; top = { room: k }; }
+    for (const e of extras) if (e.kw > topKw) { topKw = e.kw; top = { item: e.item }; }
     const exporting = f.pe > 0.5 && f.gl < 0.5;
-    return { t, f, loads, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
+    return { t, f, loads, top, extras, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
       pv: { label: 'Sonce', value: kw(f.pv) }, school: { label: 'Poraba', value: kw(f.load) },
       bat: { label: 'Baterija', value: `${fmt(f.soc)} %` }, grid: { label: exporting ? 'V omrežje' : 'Iz omrežja', value: kw(exporting ? f.pe : f.gl) },
-      kitchen: { label: 'Kuhinja', value: kw(loads.kitchen) }, classA: { label: 'Učilnice 1', value: kw(loads.classA) }, classB: { label: 'Učilnice 2', value: kw(loads.classB) }, comp: { label: 'Računalnica', value: kw(loads.comp) }, gym: { label: 'Telovadnica', value: kw(loads.gym) }, tech: { label: 'Tehnika', value: kw(loads.tech) },
+      kitchen: { label: 'Kuhinja · poraba', value: kw(loads.kitchen) }, classA: { label: 'Učilnice 1 · poraba', value: kw(loads.classA) }, classB: { label: 'Učilnice 2 · poraba', value: kw(loads.classB) }, comp: { label: 'Računalnica · poraba', value: kw(loads.comp) }, gym: { label: 'Telovadnica · poraba', value: kw(loads.gym) }, tech: { label: 'Tehnika · poraba', value: kw(loads.tech) },
     } };
   }
   function selectPart(id) { state.part = id; closePop(); renderDock(); if (state.view === 'explore') drawPart(); }
@@ -762,7 +768,7 @@
   }
 
   setView('now');
-  import('./school3d.js').then((m) => {
+  import('./school3d.js?v=9').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-free') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);

@@ -42,6 +42,8 @@ window.LAB = (() => {
     let cap = 100;
     const L = lessons();
     const add = (arr, f = 1) => arr.forEach((v, t) => { load[t] += v * f; });
+    const roomAdd = {}, extras = [];
+    const bump = (room, arr, f = 1) => { roomAdd[room] = roomAdd[room] || new Array(T).fill(0); arr.forEach((v, t) => { roomAdd[room][t] += v * f; }); };
     const windF = { sunny: 0.2, partly: 0.4, cloudy: 0.55 }[weather];
     for (const it of items) {
       const slot = SLOTS[it.type][it.slot];
@@ -49,17 +51,18 @@ window.LAB = (() => {
       if (it.type === 'carport') D.scenarios[weather].pv.forEach((v, t) => { pv[t] += v * 0.25; });
       if (it.type === 'wind') for (let t = 0; t < T; t++) pv[t] += 6 * windF * (1 + 0.4 * Math.sin(t / 7 + it.slot));
       if (it.type === 'battery') cap += 50;
-      if (it.type === 'ebus') add(between(9.5 + it.slot * 1.75, 11 + it.slot * 1.75), 50);
-      if (it.type === 'ev') add(between(8 + it.slot, 11 + it.slot), 11);
-      if (it.type === 'heatpump') for (let t = 0; t < T; t++) { const h = (t + 0.5) * DT; load[t] += h >= 6 && h < 9 ? 12 : h >= 9 && h < 16 ? 6 : 1.5; }
-      if (it.type === 'laptops') add(L, 1.4);
-      if (it.type === 'boards') add(L, 1.5);
+      if (it.type === 'ebus') { const a = between(9.5 + it.slot * 1.75, 11 + it.slot * 1.75).map((v) => v * 50); add(a); extras.push({ item: it, arr: a }); }
+      if (it.type === 'ev') { const a = between(8 + it.slot, 11 + it.slot).map((v) => v * 11); add(a); extras.push({ item: it, arr: a }); }
+      if (it.type === 'heatpump') { const a = Array.from({ length: T }, (_, t) => { const h = (t + 0.5) * DT; return h >= 6 && h < 9 ? 12 : h >= 9 && h < 16 ? 6 : 1.5; }); add(a); bump('tech', a); }
+      if (it.type === 'laptops') { add(L, 1.4); bump('comp', L, 1.4); }
+      if (it.type === 'boards') { add(L, 1.5); bump(slot.room, L, 1.5); }
       if (it.type === 'led') {
         const lamp = D.rooms[slot.room].find((d) => d.name === 'Razsvetljava');
         lamp.arr.forEach((v, t) => { load[t] -= v * 0.55; });
+        bump(slot.room, lamp.arr, -0.55);
       }
     }
-    return run(D, pv, load, cap);
+    return { ...run(D, pv, load, cap), roomAdd, extras };
   }
 
   function run(D, pv, load, cap) {

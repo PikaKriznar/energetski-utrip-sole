@@ -82,7 +82,7 @@ export function createSchool3D(host, tagsHost, api) {
     const key = `${part}|${color}|${opts.key || ''}`;
     if (!mats.has(key)) {
       const m = new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.02, transparent: !!opts.fade });
-      m.userData = { part, base: new THREE.Color(color), skip: !!opts.skip };
+      m.userData = { part, base: new THREE.Color(color), skip: !!opts.skip, wall: !!opts.fade };
       mats.set(key, m);
     }
     return mats.get(key);
@@ -145,17 +145,22 @@ export function createSchool3D(host, tagsHost, api) {
   const panelMat = new THREE.MeshStandardMaterial({ color: '#1d4fb0', emissive: '#3aa0ff', emissiveIntensity: 0.2, roughness: 0.3, metalness: 0.3 });
   panelMat.userData = { part: 'pv', base: new THREE.Color('#1d4fb0'), skip: true };
   const lamps = {};
+  const WALL = { fade: true, key: 'wall' }, roomGlasses = [];
   for (const r of ROOMS) {
     const part = r.id, t = 0.18, g = new THREE.Group();
     root.add(g);
     const w = r.x1 - r.x0, d = r.z1 - r.z0;
     box(g, part, r.x0, 0, r.z0, w, 0.12, d, r.floor, { shadow: false });
-    box(g, part, r.x0, 0, r.z0, w, H, t, r.wall);
-    box(g, part, r.x0, 0, r.z1 - t, w, H, t, r.wall);
-    box(g, part, r.x0, 0, r.z0, t, H, d, r.wall);
-    box(g, part, r.x1 - t, 0, r.z0, t, H, d, r.wall);
-    box(g, part, r.x0, 0, r.z1 - 0.06, w, 0.55, 0.12, '#ffd43b', { shadow: false });
-    const win = (x, y, z, wx, wz) => box(g, part, x, y, z, wx, 1.3, wz, '', { material: glass, shadow: false });
+    box(g, part, r.x0, 0, r.z0, w, H, t, r.wall, WALL);
+    box(g, part, r.x0, 0, r.z1 - t, w, H, t, r.wall, WALL);
+    box(g, part, r.x0, 0, r.z0, t, H, d, r.wall, WALL);
+    box(g, part, r.x1 - t, 0, r.z0, t, H, d, r.wall, WALL);
+    box(g, part, r.x0, 0, r.z1 - 0.06, w, 0.55, 0.12, '#ffd43b', { shadow: false, ...WALL });
+    const roomGlass = glass.clone();
+    roomGlass.transparent = true;
+    roomGlass.userData = { part, base: glassDay, skip: true, wall: true };
+    mats.set(`glass-${part}`, roomGlass); roomGlasses.push(roomGlass);
+    const win = (x, y, z, wx, wz) => box(g, part, x, y, z, wx, 1.3, wz, '', { material: roomGlass, shadow: false });
     if (r.sides.includes('N')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.95, 2.85]) win(x, y, r.z0 - 0.04, 1, 0.08);
     if (r.sides.includes('S')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.95, 2.85]) win(x, y, r.z1 - 0.04, 1, 0.08);
     if (r.sides.includes('W')) for (let z = r.z0 + 0.5; z + 1 <= r.z1 - 0.2; z += 1.6) for (const y of [0.95, 2.85]) win(r.x0 - 0.04, y, z, 0.08, 1);
@@ -197,8 +202,8 @@ export function createSchool3D(host, tagsHost, api) {
   box(root, 'env', 8.8, 2.1, 5, 2.4, 0.2, 2, '#ffffff');
   box(root, 'env', 8.9, 0, 6.8, 0.15, 2.1, 0.15, '#94a3b8');
   box(root, 'env', 10.95, 0, 6.8, 0.15, 2.1, 0.15, '#94a3b8');
-  box(root, 'classA', 9.25, 0.1, 4.95, 0.24, 2, 0.08, '#00b4d8', { shadow: false });
-  box(root, 'classB', 9.5, 0.1, 4.95, 1.3, 2, 0.08, '#00b4d8', { shadow: false });
+  box(root, 'classA', 9.25, 0.1, 4.95, 0.24, 2, 0.08, '#00b4d8', { shadow: false, ...WALL });
+  box(root, 'classB', 9.5, 0.1, 4.95, 1.3, 2, 0.08, '#00b4d8', { shadow: false, ...WALL });
 
   // Battery
   box(root, 'bat', 20, 0, 1, 4, 2.3, 2.6, '#19b07f');
@@ -260,6 +265,22 @@ export function createSchool3D(host, tagsHost, api) {
   volume('bat', 19.6, 0.6, 24.4, 3.9, 0, 2.8, api.parts.find((p) => p.id === 'bat').color);
   volume('grid', 23.4, 6.4, 26.6, 9.6, 0, 9.5, api.parts.find((p) => p.id === 'grid').color);
   volume('pv', 5, -0.1, 18.1, 5.1, H + 0.15, H + 0.7, api.parts.find((p) => p.id === 'pv').color);
+
+  // Red frame around the biggest consumer in the current 15-minute step.
+  const topFrameMat = new THREE.MeshBasicMaterial({ color: '#ff1f1f', transparent: true, depthTest: false });
+  const topFillMat = new THREE.MeshBasicMaterial({ color: '#ff1f1f', transparent: true, opacity: 0.12, depthWrite: false });
+  function makeFrame(parent, x0, z0, x1, z1, y0, y1) {
+    const g = new THREE.Group(), r = 0.11, w = x1 - x0, d = z1 - z0, h = y1 - y0;
+    const bar = (x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), topFrameMat); m.position.set(x, y, z); m.renderOrder = 8; g.add(m); };
+    for (const y of [y0, y1]) { bar(x0 + w / 2, y, z0, w + r, r, r); bar(x0 + w / 2, y, z1, w + r, r, r); bar(x0, y, z0 + d / 2, r, r, d + r); bar(x1, y, z0 + d / 2, r, r, d + r); }
+    for (const [x, z] of [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]) bar(x, y0 + h / 2, z, r, h, r);
+    const fill = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), topFillMat);
+    fill.position.set(x0 + w / 2, y0 + h / 2, z0 + d / 2); g.add(fill);
+    g.visible = false; parent.add(g);
+    return g;
+  }
+  const roomFrames = {};
+  for (const r of ROOMS) roomFrames[r.id] = makeFrame(root, r.x0 - 0.12, r.z0 - 0.12, r.x1 + 0.12, r.z1 + 0.12, 0.05, H + 0.4);
 
   // Constantly moving connections. Idle lines move slowly in a pale colour.
   const flows = [];
@@ -368,10 +389,12 @@ export function createSchool3D(host, tagsHost, api) {
       if (slot.y > 1) { const y = slot.y; const phase = index * 1.3; if (slot.y > H) labAnim.push((e) => { g.position.y = y + Math.sin(e * 1.6 + phase) * 0.09; }); }
       const el = document.createElement('button');
       el.className = 'tag tag-lab'; el.title = 'Odstrani';
-      el.innerHTML = `<span>${window.LAB.typeById(it.type).name}</span><strong>×</strong>`;
+      const usesPower = it.type === 'ebus' || it.type === 'ev';
+      el.innerHTML = `<span>${window.LAB.typeById(it.type).name}</span>${usesPower ? '<em class="kw"></em>' : ''}<strong>×</strong>`;
+      const frame = usesPower ? (it.type === 'ebus' ? makeFrame(g, -3, -1.05, 3.5, 1.05, 0.05, 2.5) : makeFrame(g, -1, -1.6, 1, 1.8, 0.05, 2)) : null;
       el.addEventListener('click', () => api.onRemove(it));
       tagsHost.appendChild(el);
-      placedTags.push({ el, pos: new THREE.Vector3(slot.x, slot.y + (slot.y > H ? 1.6 : it.type === 'wind' ? 9.6 : 3), slot.z).add(root.position) });
+      placedTags.push({ el, item: it, frame, valueEl: el.querySelector('.kw'), pos: new THREE.Vector3(slot.x, slot.y + (slot.y > H ? 1.6 : it.type === 'wind' ? 9.6 : 3), slot.z).add(root.position) });
     });
   }
   function beginDrag(type, used) {
@@ -464,13 +487,16 @@ export function createSchool3D(host, tagsHost, api) {
     for (const m of mats.values()) {
       const u = m.userData;
       const mine = u.part === selected;
+      if (u.wall) { m.opacity += ((mine ? 0.14 : 1) - m.opacity) * 0.14; m.depthWrite = m.opacity > 0.9; }
       if (u.roof) { m.opacity += ((mine ? 0.1 : 1) - m.opacity) * 0.14; continue; }
       if (u.skip) continue;
       const fade = selected && selected !== 'school' && !mine ? 0.5 : 0;
       m.color.lerp(colorTmp.copy(u.base).lerp(dim, fade), 0.14);
     }
     const pulse = 0.2 + 0.1 * Math.sin(elapsed * 3.2);
-    if (selected && volumes[selected]) volumes[selected].material.opacity = pulse;
+    if (selected && volumes[selected]) volumes[selected].material.opacity = ROOMS.some((r) => r.id === selected) ? pulse * 0.2 : pulse;
+    topFrameMat.opacity = 0.75 + 0.25 * Math.sin(elapsed * 5);
+    topFillMat.opacity = 0.1 + 0.07 * Math.sin(elapsed * 5);
     for (const a of labAnim) a(elapsed);
     for (const r of slotRings) r.mesh.scale.setScalar(r.key === hotSlot ? 1.35 + 0.1 * Math.sin(elapsed * 8) : 1);
     renderer.render(scene, camera);
@@ -478,7 +504,7 @@ export function createSchool3D(host, tagsHost, api) {
     for (const t of Object.values(tags)) {
       temp.copy(t.pos).project(camera);
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
-      t.el.style.zIndex = Math.round((1 - temp.z) * 100000);
+      t.el.style.zIndex = Math.round((1 - temp.z) * 100000) + (t.el.classList.contains('top') ? 200000 : 0);
     }
     for (const t of placedTags) {
       temp.copy(t.pos).project(camera);
@@ -486,7 +512,14 @@ export function createSchool3D(host, tagsHost, api) {
     }
   }
 
-  function update({ f, t, loads, onDevices, tagValues }) {
+  function update({ f, t, loads, onDevices, tagValues, top, extras }) {
+    for (const id in roomFrames) { const on = top.room === id; roomFrames[id].visible = on; tags[id].el.classList.toggle('top', on); }
+    for (const p of placedTags) {
+      const on = top.item === p.item, ex = extras.find((e) => e.item === p.item);
+      if (p.frame) p.frame.visible = on;
+      p.el.classList.toggle('top', on);
+      if (p.valueEl && ex) p.valueEl.textContent = ex.value;
+    }
     const h = t * 0.25;
     for (const fl of flows) fl.value = fl.feed ? loads[fl.id] : f[fl.id];
     for (const id in lamps) lamps[id].emissiveIntensity = onDevices.includes(id) ? 2.4 : 0;
@@ -494,7 +527,7 @@ export function createSchool3D(host, tagsHost, api) {
     panelMat.emissiveIntensity = 0.1 + Math.min(1, f.pv / 80) * 0.75;
     const day = Math.max(0, Math.sin(Math.PI * (h - 6.25) / 13.5) * (h > 6.25 && h < 19.75 ? 1 : 0));
     const night = 1 - Math.min(1, day * 3.5);
-    glass.emissiveIntensity = night * 0.9;
+    for (const g of roomGlasses) g.emissiveIntensity = night * 0.9;
     hemi.intensity = 0.75 + 0.85 * (1 - night);
     sun.intensity = 0.35 + 2.3 * Math.min(1, day * 1.8);
     const a = Math.PI * Math.max(0, Math.min(1, (h - 6.25) / 13.5));
