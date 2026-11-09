@@ -389,3 +389,6 @@ body.v-lab main { margin-top: clamp(12px, 1.1vw, 20px); }
 .tag.top[data-room] { background: rgba(190, 30, 20, .88); }
 body.v-lab .tag[data-room] { background: rgba(217, 45, 32, .55); pointer-events: none; }
 body.v-lab .tag.top[data-room] { background: rgba(190, 30, 20, .68); }
+#tags .tag { row-gap: 0; }
+#tags .tag.top::before { margin: 0 0 2px; padding: 0 5px; font-size: .68em; }
+#tags .tag.top[data-room] { grid-template-columns: auto auto; justify-content: space-between; align-items: baseline; column-gap: 8px; padding: 3px 7px; }
