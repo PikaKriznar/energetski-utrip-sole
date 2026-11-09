@@ -270,3 +270,4 @@ body.v-lab .tag[data-room] { display: none; }
   .lab-right { order: -1; }
   #palette { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
 }
+body:not(.v-lab) .tag-lab { display: none; }
