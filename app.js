@@ -662,31 +662,39 @@
     b.innerHTML = `${window.machineIcon(type.icon)}<b>${type.name}</b><span>${type.effect}</span><span><em style="font-style:normal"></em></span>`;
     palette.appendChild(b);
     let drag = null;
-    const finish = (ev, drop) => {
-      if (!drag) return;
-      const d = drag; drag = null;
-      const slot = drop && d.moved ? scene.dragOver(ev.clientX, ev.clientY) : null;
-      d.ghost.remove(); scene.endDrag();
-      if (!drop) return;
-      if (!d.moved) addItem(type.id);
-      else if (slot != null) addItem(type.id, slot);
-    };
-    b.addEventListener('pointerdown', (ev) => {
-      if (b.disabled) return;
-      ev.preventDefault(); try { b.setPointerCapture(ev.pointerId); } catch (err) { /* capture is optional */ }
-      const ghost = document.createElement('div'); ghost.id = 'drag-ghost'; ghost.innerHTML = window.machineIcon(type.icon);
-      ghost.style.transform = `translate(${ev.clientX - 46}px, ${ev.clientY - 46}px)`; ghost.hidden = true;
-      document.body.appendChild(ghost);
-      drag = { ghost, sx: ev.clientX, sy: ev.clientY, moved: false };
-    });
-    b.addEventListener('pointermove', (ev) => {
-      if (!drag) return;
+    const onMove = (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      if (ev.buttons === 0) { finish(ev, false); return; } // released where the page could not see it
       if (!drag.moved && Math.hypot(ev.clientX - drag.sx, ev.clientY - drag.sy) > 6) { drag.moved = true; drag.ghost.hidden = false; scene.beginDrag(type.id, usedSlots(type.id)); }
       drag.ghost.style.transform = `translate(${ev.clientX - 46}px, ${ev.clientY - 46}px)`;
       if (drag.moved) scene.dragOver(ev.clientX, ev.clientY);
+    };
+    const onUp = (ev) => { if (drag && ev.pointerId === drag.id) finish(ev, true); };
+    const onCancel = (ev) => { if (drag && (ev.pointerId === undefined || ev.pointerId === drag.id)) finish(ev, false); };
+    const onKey = (ev) => { if (ev.key === 'Escape') finish(ev, false); };
+    function finish(ev, drop) {
+      if (!drag) return;
+      const d = drag; drag = null;
+      d.ghost.remove();
+      removeEventListener('pointermove', onMove); removeEventListener('pointerup', onUp); removeEventListener('pointercancel', onCancel);
+      removeEventListener('blur', onCancel); removeEventListener('keydown', onKey);
+      const slot = drop && d.moved ? scene.dragOver(ev.clientX, ev.clientY) : null;
+      scene.endDrag();
+      if (!drop) return;
+      if (!d.moved) addItem(type.id);
+      else if (slot != null) addItem(type.id, slot);
+    }
+    b.addEventListener('pointerdown', (ev) => {
+      if (b.disabled) return;
+      document.querySelectorAll('#drag-ghost').forEach((g) => g.remove());
+      ev.preventDefault(); try { b.setPointerCapture(ev.pointerId); } catch (err) { /* the window listeners below work without capture */ }
+      const ghost = document.createElement('div'); ghost.id = 'drag-ghost'; ghost.innerHTML = window.machineIcon(type.icon);
+      ghost.style.transform = `translate(${ev.clientX - 46}px, ${ev.clientY - 46}px)`; ghost.hidden = true;
+      document.body.appendChild(ghost);
+      drag = { id: ev.pointerId, ghost, sx: ev.clientX, sy: ev.clientY, moved: false };
+      addEventListener('pointermove', onMove); addEventListener('pointerup', onUp); addEventListener('pointercancel', onCancel);
+      addEventListener('blur', onCancel); addEventListener('keydown', onKey);
     });
-    b.addEventListener('pointerup', (ev) => finish(ev, true));
-    b.addEventListener('pointercancel', (ev) => finish(ev, false));
   });
   $('#lab-reset').addEventListener('click', () => { lab.items = []; itemsChanged(); });
   function labWeather() {
