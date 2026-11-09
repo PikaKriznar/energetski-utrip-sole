@@ -368,3 +368,4 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 #lab-effect .hint { margin-top: .6em; }
 .lab-stage { grid-template-rows: minmax(0, 1fr); }
 @media (max-width: 960px) { .lab-mission, .lab-sched { flex: none; } }
+@media (min-width: 961px) { body.v-now #view-lab { height: 100%; } }
