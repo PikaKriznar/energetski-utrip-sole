@@ -102,6 +102,8 @@ export function createSchool3D(host, tagsHost, api) {
   disc.position.set(CENTER.x, -0.7, CENTER.z);
   disc.receiveShadow = true;
   root.add(disc);
+  disc.material.userData = { part: 'env', base: disc.material.color.clone(), labOnly: true };
+  mats.set('disc', disc.material);
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(DISC_R + 0.5, DISC_R - 1.5, 2.6, 96), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6 }));
   rim.position.set(CENTER.x, -1.75, CENTER.z);
   root.add(rim);
@@ -109,6 +111,8 @@ export function createSchool3D(host, tagsHost, api) {
   road.rotation.x = -Math.PI / 2;
   road.position.set(CENTER.x, 0.015, CENTER.z);
   road.receiveShadow = true;
+  road.material.userData = { part: 'env', base: road.material.color.clone(), labOnly: true };
+  mats.set('road', road.material);
   root.add(road);
   const env = new THREE.Group();
   root.add(env);
@@ -372,11 +376,12 @@ export function createSchool3D(host, tagsHost, api) {
   const ringGroup = new THREE.Group(); root.add(ringGroup);
   const labAnim = [], slotRings = [], placedTags = [];
   let hotSlot = null;
+  const labPanel = mat('lab', '#1565ff');
   const LB = (g, x, y, z, w, h, d, c) => box(g, 'lab', x, y, z, w, h, d, c);
   const disk = (g, r, y, c) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.08, 28), mat('lab', c)); m.position.y = y; g.add(m); return m; };
   const BUILD = {
-    pv_roof(g) { for (let a = -1.9; a < 1.9; a += 1.5) for (let b = -2; b < 1.8; b += 1.15) { const p = box(g, 'lab', a, 0.3, b, 1.3, 0.06, 0.95, '', { material: panelMat }); p.rotation.x = -0.22; } },
-    carport(g) { [[-2, -1.2], [2, -1.2], [-2, 1.2], [2, 1.2]].forEach(([x, z]) => LB(g, x - 0.08, 0, z - 0.08, 0.16, 2.2, 0.16, '#868e96')); const r = box(g, 'lab', -2.4, 2.2, -1.6, 4.8, 0.08, 3.2, '', { material: panelMat }); r.rotation.x = -0.14; LB(g, -1.3, 0.25, -0.7, 2.6, 0.6, 1.3, '#ef476f'); },
+    pv_roof(g) { for (let a = -1.9; a < 1.9; a += 1.5) for (let b = -2; b < 1.8; b += 1.15) { const p = box(g, 'lab', a, 0.3, b, 1.3, 0.06, 0.95, '', { material: labPanel }); p.rotation.x = -0.22; } },
+    carport(g) { [[-2, -1.2], [2, -1.2], [-2, 1.2], [2, 1.2]].forEach(([x, z]) => LB(g, x - 0.08, 0, z - 0.08, 0.16, 2.2, 0.16, '#868e96')); const r = box(g, 'lab', -2.4, 2.2, -1.6, 4.8, 0.08, 3.2, '', { material: labPanel }); r.rotation.x = -0.14; LB(g, -1.3, 0.25, -0.7, 2.6, 0.6, 1.3, '#ef476f'); },
     wind(g) { LB(g, -0.12, 0, -0.12, 0.24, 7, 0.24, '#e9ecef'); const hub = new THREE.Group(); hub.position.set(0, 7, 0.25); g.add(hub); for (let i = 0; i < 3; i++) { const b = LB(hub, -0.11, 0, -0.04, 0.22, 2.3, 0.08, '#90e0ef'); const p = new THREE.Group(); p.rotation.z = (i * 2 * Math.PI) / 3; p.add(b); hub.add(p); } labAnim.push((e) => { hub.rotation.z = e * 2.2; }); },
     battery(g) { LB(g, -1.5, 0, -1, 3, 2, 2, '#19b07f'); LB(g, -1.6, 2, -1.1, 3.2, 0.12, 2.2, '#c3f0dd'); for (let i = 0; i < 4; i++) LB(g, -1.2 + i * 0.65, 0.5, 0.98, 0.45, 1, 0.05, '#7dffcf'); },
     ebus(g) { LB(g, -2.6, 0.32, -0.65, 5.2, 1.5, 1.3, '#06d6a0'); LB(g, -2.5, 1.05, -0.67, 5, 0.5, 1.34, '#264653'); LB(g, -2.6, 1.82, -0.65, 5.2, 0.14, 1.3, '#d4f8ec'); LB(g, 2.9, 0, -0.2, 0.4, 1.7, 0.4, '#3a86ff'); },
@@ -497,9 +502,10 @@ export function createSchool3D(host, tagsHost, api) {
       if (u.wall) { m.opacity += ((mine ? 0.14 : 1) - m.opacity) * 0.14; m.depthWrite = m.opacity > 0.9; }
       if (u.roof) { m.opacity += ((mine ? 0.1 : 1) - m.opacity) * 0.14; continue; }
       if (u.skip) continue;
-      const fade = selected && selected !== 'school' && !mine ? 0.5 : 0;
+      const fade = labOn ? (u.part === 'lab' ? 0 : 0.66) : (u.labOnly ? 0 : selected && selected !== 'school' && !mine ? 0.5 : 0);
       m.color.lerp(colorTmp.copy(u.base).lerp(dim, fade), 0.14);
     }
+    for (const g of [panelMat, ...roomGlasses]) g.color.lerp(colorTmp.copy(g.userData.base).lerp(dim, labOn ? 0.62 : 0), 0.14);
     const pulse = 0.2 + 0.1 * Math.sin(elapsed * 3.2);
     if (selected && volumes[selected]) volumes[selected].material.opacity = ROOMS.some((r) => r.id === selected) ? pulse * 0.2 : pulse;
     topFrameMat.opacity = 0.75 + 0.25 * Math.sin(elapsed * 5);

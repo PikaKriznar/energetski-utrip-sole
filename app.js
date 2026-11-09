@@ -342,7 +342,7 @@
     return { t, f, loads, top, extras, onDevices: activeKitchen(t).map((d) => d.id), tagValues: {
       pv: { label: 'Sonce', value: kw(f.pv) }, school: { label: 'Poraba', value: kw(f.load) },
       bat: { label: 'Baterija', value: `${fmt(f.soc)} %` }, grid: { label: exporting ? 'V omrežje' : 'Iz omrežja', value: kw(exporting ? f.pe : f.gl) },
-      kitchen: { label: 'Kuhinja · poraba', value: kw(loads.kitchen) }, classA: { label: 'Učilnice 1 · poraba', value: kw(loads.classA) }, classB: { label: 'Učilnice 2 · poraba', value: kw(loads.classB) }, comp: { label: 'Računalnica · poraba', value: kw(loads.comp) }, gym: { label: 'Telovadnica · poraba', value: kw(loads.gym) }, tech: { label: 'Tehnika · poraba', value: kw(loads.tech) },
+      kitchen: { label: 'Kuhinja', value: kw(loads.kitchen) }, classA: { label: 'Učilnice 1', value: kw(loads.classA) }, classB: { label: 'Učilnice 2', value: kw(loads.classB) }, comp: { label: 'Računalnica', value: kw(loads.comp) }, gym: { label: 'Telovadnica', value: kw(loads.gym) }, tech: { label: 'Tehnika', value: kw(loads.tech) },
     } };
   }
   function selectPart(id) { state.part = id; closePop(); renderDock(); if (state.view === 'explore') drawPart(); }
@@ -966,7 +966,7 @@
 
   paintMode();
   setView('now');
-  import('./school3d.js?v=20').then((m) => {
+  import('./school3d.js?v=21').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-model') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);

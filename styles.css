@@ -283,7 +283,7 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 }
 .tag[data-room] { background: #d92d20; color: #fff; border-left-color: #7a1209; }
 .tag[data-room] span { color: #ffe9e6; font-weight: 600; }
-.tag[data-room] strong { font-size: 1.45em; }
+.tag[data-room] strong { font-size: 1.12em; }
 .tag.on[data-room] { background: #d92d20; box-shadow: 0 0 0 3px #fff, 0 4px 14px rgba(30,64,110,.3); }
 .tag.top::before { content: 'Največja poraba'; display: block; grid-column: 1 / -1; color: #101828; background: #ffd166; border-radius: 4px; padding: 0 5px; margin: 2px 0; font-size: .72em; font-weight: 800; text-align: center; }
 .tag.top { outline: 2px solid #ffd166; }
@@ -384,3 +384,8 @@ body .dock-wrap { left: 0; right: 0; transform: none; flex-direction: row; justi
 .lab-strip .seg { background: rgba(255,255,255,.92); box-shadow: 0 8px 26px rgba(30,64,110,.13); }
 .lab-strip .seg button { min-height: 40px; }
 body.v-lab main { margin-top: clamp(12px, 1.1vw, 20px); }
+.tag[data-room] { background: rgba(217, 45, 32, .8); padding: 1px 7px; font-size: .92em; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.tag.on[data-room] { background: rgba(217, 45, 32, .88); }
+.tag.top[data-room] { background: rgba(190, 30, 20, .88); }
+body.v-lab .tag[data-room] { background: rgba(217, 45, 32, .55); pointer-events: none; }
+body.v-lab .tag.top[data-room] { background: rgba(190, 30, 20, .68); }
