@@ -966,7 +966,7 @@
 
   paintMode();
   setView('now');
-  import('./school3d.js?v=21').then((m) => {
+  import('./school3d.js?v=23').then((m) => {
     scene = m.createSchool3D($('#stage3d'), $('#tags'), { parts: PARTS, freeArea: state.view === 'lab' ? $('#lab-model') : $('#stage-free'), onSelect: selectPart, onRemove: removeItem, invites: INVITES });
     scene.setLab(state.view === 'lab');
     scene.setPlaced(lab.items);

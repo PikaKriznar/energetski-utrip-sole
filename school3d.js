@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const H = 4.6;
 const CENTER = new THREE.Vector3(11.5, 0, 8);
 const DISC_R = 18;
+const HOVER_OPACITY = 0.36; // rest of the building while the user hovers one room
 const ROOMS = [
   { id: 'tech', x0: 0, z0: 0, x1: 5, z1: 5, wall: '#f7b801', floor: '#fff0c2', sides: 'NW', panels: false },
   { id: 'classA', x0: 5, z0: 0, x1: 9.5, z1: 5, wall: '#ff6b4a', floor: '#ffe0d6', sides: 'NS', panels: true },
@@ -147,6 +148,7 @@ export function createSchool3D(host, tagsHost, api) {
   const glass = new THREE.MeshStandardMaterial({ color: glassDay, emissive: '#ffd76a', emissiveIntensity: 0, roughness: 0.25 });
   glass.userData = { part: 'env', base: glassDay, skip: true };
   const panelMat = new THREE.MeshStandardMaterial({ color: '#1d4fb0', emissive: '#3aa0ff', emissiveIntensity: 0.2, roughness: 0.3, metalness: 0.3 });
+  panelMat.transparent = true;
   panelMat.userData = { part: 'pv', base: new THREE.Color('#1d4fb0'), skip: true };
   const lamps = {};
   const WALL = { fade: true, key: 'wall' }, roomGlasses = [];
@@ -496,11 +498,14 @@ export function createSchool3D(host, tagsHost, api) {
     const br = DISC_R - 1.1;
     bus.position.set(CENTER.x + Math.cos(busAngle) * br, 0, CENTER.z + Math.sin(busAngle) * br);
     bus.rotation.y = -busAngle;
+    const hoverRoom = !labOn && mode === 'user' && ROOMS.some((r) => r.id === selected);
+    panelMat.opacity += ((hoverRoom ? HOVER_OPACITY : 1) - panelMat.opacity) * 0.14;
+    panelMat.depthWrite = panelMat.opacity > 0.9;
     for (const m of mats.values()) {
       const u = m.userData;
       const mine = u.part === selected;
-      if (u.wall) { m.opacity += ((mine ? 0.14 : 1) - m.opacity) * 0.14; m.depthWrite = m.opacity > 0.9; }
-      if (u.roof) { m.opacity += ((mine ? 0.1 : 1) - m.opacity) * 0.14; continue; }
+      if (u.wall) { m.opacity += ((mine ? 0.14 : hoverRoom ? HOVER_OPACITY : 1) - m.opacity) * 0.14; m.depthWrite = m.opacity > 0.9; }
+      if (u.roof) { m.opacity += ((mine ? 0.1 : hoverRoom ? HOVER_OPACITY : 1) - m.opacity) * 0.14; m.depthWrite = m.opacity > 0.9; continue; }
       if (u.skip) continue;
       const fade = labOn ? (u.part === 'lab' ? 0 : 0.66) : (u.labOnly ? 0 : selected && selected !== 'school' && !mine ? 0.5 : 0);
       m.color.lerp(colorTmp.copy(u.base).lerp(dim, fade), 0.14);
