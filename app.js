@@ -136,8 +136,8 @@
 
   function drawDayChart(host, sc, pv, { height = 230, ymax, cursor = false }) {
     host.innerHTML = '';
-    const W = Math.max(280, host.clientWidth || 600), H = height;
-    const m = { l: 54, r: 10, t: 10, b: 24 };
+    const W = Math.max(170, host.clientWidth || 600), H = height;
+    const m = { l: W < 300 ? 30 : 54, r: 6, t: 10, b: 22 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     const s = sc.series;
     const top = ymax || 120;
@@ -146,9 +146,9 @@
     const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, height: H, role: 'img', 'aria-label': 'Poraba šole po virih skozi dan in proizvodnja sončne elektrarne' }, host);
     for (let v = 0; v <= top; v += top > 100 ? 40 : 20) {
       svgEl('line', { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? 'var(--axis)' : 'var(--grid-line)' }, svg);
-      const t = svgEl('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, svg); t.textContent = v === top || (top > 100 && v + 40 > top) ? `${v} kW` : v;
+      const t = svgEl('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, svg); t.textContent = W >= 300 && (v === top || (top > 100 && v + 40 > top)) ? `${v} kW` : v;
     }
-    for (let h = 0; h <= 24; h += W < 520 ? 6 : 3) {
+    for (let h = 0; h <= 24; h += W < 300 ? 12 : W < 520 ? 6 : 3) {
       const t = svgEl('text', { x: X(h * 4), y: H - 6, 'text-anchor': h === 0 ? 'start' : h === 24 ? 'end' : 'middle' }, svg); t.textContent = `${h}:00`;
     }
     const layers = [[s.pl, COLORS.pv], [s.bl, COLORS.bat], [s.gl, COLORS.grid]];
@@ -265,7 +265,7 @@
     $('#part-bars-title').textContent = d.barsTitle;
     $('#part-note').hidden = !p.room || p.id === 'kitchen';
     const host = $('#part-chart'); host.innerHTML = '';
-    const W = Math.max(240, host.clientWidth || 340), Ht = 98, m = { l: 34, r: 6, t: 8, b: 20 };
+    const W = Math.max(170, host.clientWidth || 340), Ht = 80, m = { l: 28, r: 6, t: 8, b: 20 };
     const iw = W - m.l - m.r, ih = Ht - m.t - m.b;
     const top = d.top || Math.max(4, Math.ceil(Math.max(...d.arr) / 10) * 10);
     const X = (t) => m.l + (t / (T - 1)) * iw, Y = (v) => m.t + ih - (v / top) * ih;
@@ -287,7 +287,7 @@
     hit.addEventListener('pointerleave', () => { tip.hidden = true; });
 
     const bh = $('#part-bars'); bh.innerHTML = '';
-    const BW = Math.max(240, bh.clientWidth || 340), BH = 82, bm = { l: 4, r: 4, t: 16, b: 18 };
+    const BW = Math.max(170, bh.clientWidth || 340), BH = 68, bm = { l: 4, r: 4, t: 16, b: 18 };
     const hours = Array.from({ length: 24 }, (_, h) => d.bars.slice(h * 4, h * 4 + 4).reduce((a, v) => a + v, 0) * D.meta.dt);
     const bmax = Math.max(1, ...hours), slot = (BW - bm.l - bm.r) / 24, bw = Math.max(3, slot - 2);
     const bsvg = svgEl('svg', { viewBox: `0 0 ${BW} ${BH}`, height: BH, role: 'img', 'aria-label': `${d.barsTitle}: ${p.name}` }, bh);
@@ -507,7 +507,7 @@
     redraw();
   }
   function redraw() {
-    if (state.view === 'now') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: Math.max(130, Math.min(240, innerHeight * .15)), ymax: 100, cursor: true }); drawPart(); }
+    if (state.view === 'now') { nowChart = drawDayChart($('#chart-now'), liveSc(), livePv(), { height: Math.max(96, Math.min(170, innerHeight * .13)), ymax: 100, cursor: true }); drawPart(); }
     if (state.view === 'better') renderBetter();
     renderLive();
   }

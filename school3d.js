@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const H = 3.6;
-const CENTER = new THREE.Vector3(12.5, 0, 8);
-const DISC_R = 22;
+const H = 4.6;
+const CENTER = new THREE.Vector3(11.5, 0, 8);
+const DISC_R = 18;
 const ROOMS = [
   { id: 'tech', x0: 0, z0: 0, x1: 5, z1: 5, wall: '#f7b801', floor: '#fff0c2', sides: 'NW', panels: false },
   { id: 'classA', x0: 5, z0: 0, x1: 9.5, z1: 5, wall: '#ff6b4a', floor: '#ffe0d6', sides: 'NS', panels: true },
@@ -20,9 +20,9 @@ const DEVICES = {
 const LINKS = {
   pl: { color: '#eda100', pts: [[10, H + 0.5, 3], [10, H + 0.5, 5.25], [10, 0.25, 5.25], [10, 0.25, 6.2]] },
   pb: { color: '#eda100', pts: [[16, H + 0.5, 2.2], [18.3, H + 0.5, 2.2], [18.3, 0.25, 2.2], [20, 0.25, 2.2]] },
-  pe: { color: '#eda100', pts: [[16, H + 0.5, 3.2], [18.5, H + 0.5, 3.2], [18.5, 0.25, 3.2], [18.5, 0.25, 4.5], [27, 0.25, 4.5], [27, 0.25, 7]] },
+  pe: { color: '#eda100', pts: [[16, H + 0.5, 3.2], [18.5, H + 0.5, 3.2], [18.5, 0.25, 3.2], [18.5, 0.25, 4.5], [25, 0.25, 4.5], [25, 0.25, 8]] },
   bl: { color: '#1baf7a', pts: [[22, 0.25, 3.6], [22, 0.25, 5.8], [10.6, 0.25, 5.8], [10.6, 0.25, 6.2]] },
-  gl: { color: '#eb6834', pts: [[26.6, 0.25, 7], [26.6, 0.25, 6.9], [9.4, 0.25, 6.9], [9.4, 0.25, 6.2]] },
+  gl: { color: '#eb6834', pts: [[24.6, 0.25, 8], [24.6, 0.25, 6.9], [9.4, 0.25, 6.9], [9.4, 0.25, 6.2]] },
 };
 const FEEDS = {
   classA: [[2.5, 0.35, 2.5], [2.5, 0.35, 0.8], [7.2, 0.35, 0.8], [7.2, 0.35, 2.5]],
@@ -32,7 +32,7 @@ const FEEDS = {
   gym: [[2.5, 0.35, 2.5], [0.7, 0.35, 2.5], [0.7, 0.35, 12.5], [2.5, 0.35, 12.5]],
 };
 const FEED_COLOR = '#2a78d6';
-const TAG_POS = { pv: [12, H + 1.6, 2.5], school: [10, 3.2, 7], bat: [22, 3.4, 2.3], grid: [27, 9.6, 7] };
+const TAG_POS = { pv: [12, H + 1.6, 2.5], school: [10, 3.2, 7], bat: [22, 3.4, 2.3], grid: [25, 9.8, 8] };
 
 export function createSchool3D(host, tagsHost, api) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -73,7 +73,7 @@ export function createSchool3D(host, tagsHost, api) {
 
   // Materials are cached per part so one part can be highlighted on its own.
   const mats = new Map();
-  const partMeshes = [];
+  const pickers = [];
   function mat(part, color, opts = {}) {
     const key = `${part}|${color}|${opts.key || ''}`;
     if (!mats.has(key)) {
@@ -90,7 +90,6 @@ export function createSchool3D(host, tagsHost, api) {
     m.receiveShadow = true;
     m.userData.part = part;
     parent.add(m);
-    if (part !== 'env') partMeshes.push(m);
     return m;
   }
 
@@ -102,7 +101,7 @@ export function createSchool3D(host, tagsHost, api) {
   const rim = new THREE.Mesh(new THREE.CylinderGeometry(DISC_R + 0.5, DISC_R - 1.5, 2.6, 96), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6 }));
   rim.position.set(CENTER.x, -1.75, CENTER.z);
   root.add(rim);
-  const road = new THREE.Mesh(new THREE.RingGeometry(DISC_R - 2.5, DISC_R - 0.5, 96), new THREE.MeshStandardMaterial({ color: '#5a6178', roughness: 1 }));
+  const road = new THREE.Mesh(new THREE.RingGeometry(DISC_R - 1.9, DISC_R - 0.3, 96), new THREE.MeshStandardMaterial({ color: '#5a6178', roughness: 1 }));
   road.rotation.x = -Math.PI / 2;
   road.position.set(CENTER.x, 0.015, CENTER.z);
   road.receiveShadow = true;
@@ -115,11 +114,11 @@ export function createSchool3D(host, tagsHost, api) {
   flat(12.5, 8, 5.5, 6, '#ff7b00', 0.05);
   flat(13, 8.5, 4.5, 5, '#00b4d8', 0.08);
   flat(15.2, 8.5, 0.1, 5, '#ffffff', 0.11);
-  flat(19.5, 10, 8.5, 5.4, '#37b24d', 0.05);
-  flat(23.7, 10, 0.1, 5.4, '#ffffff', 0.08);
-  flat(18.5, 0, 6.5, 5.5, '#d7ccc8', 0.05);
+  flat(19.3, 10.6, 5.2, 4.2, '#37b24d', 0.05);
+  flat(21.85, 10.6, 0.1, 4.2, '#ffffff', 0.08);
+  flat(18.5, 0, 5.8, 5.5, '#d7ccc8', 0.05);
   ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#7b5cff', '#ff9f1c'].forEach((c, i) => flat(6.2, 7 + i * 1.05, 1.4, 0.95, c, 0.07));
-  const trees = [[-2.5, 3, '#38b000'], [3, -2.8, '#ff8fab'], [9, -2.8, '#70e000'], [15, -2.8, '#ffd60a'], [-2.5, 10, '#ff8fab'], [6.4, 16, '#38b000'], [12, 16, '#ffd60a'], [17.3, 15.8, '#ff8fab'], [1.5, 17, '#70e000'], [19.5, 7.8, '#38b000'], [30, 3, '#ffd60a'], [24, -2, '#70e000']];
+  const trees = [[-2.5, 3, '#38b000'], [3, -2.8, '#ff8fab'], [9, -2.8, '#70e000'], [15, -2.8, '#ffd60a'], [-2.5, 10, '#ff8fab'], [6.4, 16, '#38b000'], [12, 16, '#ffd60a'], [17.3, 15.8, '#ff8fab'], [1.5, 17, '#70e000'], [19.5, 7.8, '#38b000'], [25.3, 13, '#ffd60a'], [22.5, -1.5, '#70e000']];
   for (const [x, z, c] of trees) {
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.5, 8), mat('env', '#8a5a33'));
     trunk.position.set(x, 0.75, z); trunk.castShadow = true; env.add(trunk);
@@ -152,11 +151,11 @@ export function createSchool3D(host, tagsHost, api) {
     box(g, part, r.x0, 0, r.z0, t, H, d, r.wall);
     box(g, part, r.x1 - t, 0, r.z0, t, H, d, r.wall);
     box(g, part, r.x0, 0, r.z1 - 0.06, w, 0.55, 0.12, '#ffd43b', { shadow: false });
-    const win = (x, y, z, wx, wz) => box(g, part, x, y, z, wx, 1, wz, '', { material: glass, shadow: false });
-    if (r.sides.includes('N')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.85, 2.3]) win(x, y, r.z0 - 0.04, 1, 0.08);
-    if (r.sides.includes('S')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.85, 2.3]) win(x, y, r.z1 - 0.04, 1, 0.08);
-    if (r.sides.includes('W')) for (let z = r.z0 + 0.5; z + 1 <= r.z1 - 0.2; z += 1.6) for (const y of [0.85, 2.3]) win(r.x0 - 0.04, y, z, 0.08, 1);
-    if (r.sides.includes('E')) for (let z = r.z0 + 0.5; z + 1 <= r.z1 - 0.2; z += 1.6) for (const y of [0.85, 2.3]) win(r.x1 - 0.04, y, z, 0.08, 1);
+    const win = (x, y, z, wx, wz) => box(g, part, x, y, z, wx, 1.3, wz, '', { material: glass, shadow: false });
+    if (r.sides.includes('N')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.95, 2.85]) win(x, y, r.z0 - 0.04, 1, 0.08);
+    if (r.sides.includes('S')) for (let x = r.x0 + 0.5; x + 1 <= r.x1 - 0.2; x += 1.6) for (const y of [0.95, 2.85]) win(x, y, r.z1 - 0.04, 1, 0.08);
+    if (r.sides.includes('W')) for (let z = r.z0 + 0.5; z + 1 <= r.z1 - 0.2; z += 1.6) for (const y of [0.95, 2.85]) win(r.x0 - 0.04, y, z, 0.08, 1);
+    if (r.sides.includes('E')) for (let z = r.z0 + 0.5; z + 1 <= r.z1 - 0.2; z += 1.6) for (const y of [0.95, 2.85]) win(r.x1 - 0.04, y, z, 0.08, 1);
     const roofM = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7, transparent: true });
     roofM.userData = { part, base: new THREE.Color('#ffffff'), roof: true };
     mats.set(`roof-${part}`, roofM);
@@ -218,15 +217,30 @@ export function createSchool3D(host, tagsHost, api) {
     m.castShadow = part !== 'link';
     m.userData.part = part === 'link' ? 'env' : part;
     root.add(m);
-    if (part !== 'link') partMeshes.push(m);
   };
-  const px = 27, pz = 7, top = [px, 9, pz];
+  const px = 25, pz = 8, top = [px, 9, pz];
   [[-0.9, -0.9], [0.9, -0.9], [0.9, 0.9], [-0.9, 0.9]].forEach(([dx, dz]) => strut([px + dx, 0, pz + dz], top, 'grid', 0.09));
   for (const [y, s] of [[2.6, 0.66], [5, 0.4]]) {
     strut([px - s, y, pz - s], [px + s, y, pz - s]); strut([px - s, y, pz + s], [px + s, y, pz + s]);
     strut([px - s, y, pz - s], [px - s, y, pz + s]); strut([px + s, y, pz - s], [px + s, y, pz + s]);
   }
   strut([px - 2, 7.2, pz], [px + 2, 7.2, pz]); strut([px - 1.4, 8.3, pz], [px + 1.4, 8.3, pz]);
+
+  // Invisible, generous targets so every section is easy to hover and click.
+  const pickMat = new THREE.MeshBasicMaterial();
+  function picker(part, x0, y0, z0, x1, y1, z1, panelRoom) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), pickMat);
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    m.userData = { part, panelRoom };
+    m.visible = false; root.add(m); m.updateMatrixWorld(); pickers.push(m);
+  }
+  for (const r of ROOMS) {
+    const out = (side) => (r.sides.includes(side) ? 0.45 : 0);
+    picker(r.id, r.x0 - out('W'), 0, r.z0 - out('N'), r.x1 + out('E'), H + 0.25, r.z1 + out('S'));
+    if (r.panels) picker('pv', r.x0, H + 0.25, r.z0, r.x1, H + 1.1, r.z1, r.id);
+  }
+  picker('bat', 19.3, 0, 0.3, 24.7, 3.4, 4.3);
+  picker('grid', 24, 0, 7, 26, 10.2, 9);
 
   // Highlight volumes
   const volumes = {};
@@ -240,9 +254,8 @@ export function createSchool3D(host, tagsHost, api) {
     if (r) volume(p.id, r.x0 - 0.2, r.z0 - 0.2, r.x1 + 0.2, r.z1 + 0.2, 0, H + 0.45, p.color);
   }
   volume('bat', 19.6, 0.6, 24.4, 3.9, 0, 2.8, api.parts.find((p) => p.id === 'bat').color);
-  volume('grid', 25.4, 5.4, 28.6, 8.6, 0, 9.5, api.parts.find((p) => p.id === 'grid').color);
+  volume('grid', 23.4, 6.4, 26.6, 9.6, 0, 9.5, api.parts.find((p) => p.id === 'grid').color);
   volume('pv', 5, -0.1, 18.1, 5.1, H + 0.15, H + 0.7, api.parts.find((p) => p.id === 'pv').color);
-  volume('school', -0.3, -0.3, 18.3, 5.3, 0, H + 0.5, api.parts.find((p) => p.id === 'school').color);
 
   // Constantly moving connections. Idle lines move slowly in a pale colour.
   const flows = [];
@@ -277,6 +290,11 @@ export function createSchool3D(host, tagsHost, api) {
     tags[id] = { el, pos: new THREE.Vector3(...TAG_POS[id]).add(root.position), label: el.children[0], value: el.children[1] };
   }
 
+  const nameTag = document.createElement('div');
+  nameTag.className = 'tag tag-name'; nameTag.hidden = true;
+  tagsHost.appendChild(nameTag);
+  const namePos = new THREE.Vector3();
+
   // Selection
   let selected = null, mode = 'tour', tourIndex = -1, idleTimer, lastHover = null;
   const tourOrder = api.parts.map((p) => p.id);
@@ -284,7 +302,13 @@ export function createSchool3D(host, tagsHost, api) {
     if (selected === id) return;
     selected = id;
     for (const k in volumes) { volumes[k].visible = k === id; }
-    for (const r of ROOMS) if (roofPanels[r.id]) roofPanels[r.id].visible = r.id !== id && id !== 'school';
+    for (const r of ROOMS) if (roofPanels[r.id]) roofPanels[r.id].visible = r.id !== id;
+    const room = ROOMS.find((r) => r.id === id), info = api.parts.find((p) => p.id === id);
+    nameTag.hidden = !room;
+    if (room) {
+      nameTag.textContent = info.name; nameTag.style.setProperty('--c', info.color);
+      namePos.set((room.x0 + room.x1) / 2, H + 1.4, (room.z0 + room.z1) / 2).add(root.position);
+    }
     api.onSelect(id);
   }
   function tour() {
@@ -305,11 +329,9 @@ export function createSchool3D(host, tagsHost, api) {
     const r = canvas.getBoundingClientRect();
     ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ptr, camera);
-    for (const hit of ray.intersectObjects(partMeshes, false)) {
-      let visible = true;
-      for (let o = hit.object; o; o = o.parent) if (!o.visible) visible = false;
-      const m = hit.object.material;
-      if (!visible || (m.userData.roof && m.opacity < 0.5)) continue;
+    root.updateMatrixWorld();
+    for (const hit of ray.intersectObjects(pickers, false)) {
+      if (hit.object.userData.panelRoom === selected) continue;
       return hit.object.userData.part;
     }
     return null;
@@ -333,8 +355,8 @@ export function createSchool3D(host, tagsHost, api) {
       camera.setViewOffset(w, h, w / 2 - cx, h / 2 - cy, w, h);
     } else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    const fit = innerWidth > 960 ? Math.min(fw * 1.15, fh * 2) : Math.min(fw * 1.05, fh * 1.7);
-    const dist = ((DISC_R + 3) / Math.tan(THREE.MathUtils.degToRad(13))) * (h / fit);
+    const fit = innerWidth > 960 ? Math.min(fw * 1.14, fh * 1.72) : Math.min(fw * 1.05, fh * 1.7);
+    const dist = ((DISC_R + 1.5) / Math.tan(THREE.MathUtils.degToRad(13))) * (h / fit);
     const dir = camera.position.clone().sub(controls.target).normalize();
     camera.position.copy(controls.target).addScaledVector(dir, dist);
     controls.minDistance = dist * 0.55; controls.maxDistance = dist * 1.25;
@@ -371,21 +393,22 @@ export function createSchool3D(host, tagsHost, api) {
     dots.instanceMatrix.needsUpdate = true;
     if (dots.instanceColor) dots.instanceColor.needsUpdate = true;
     busAngle += dt * 0.09;
-    const br = DISC_R - 1.5;
+    const br = DISC_R - 1.1;
     bus.position.set(CENTER.x + Math.cos(busAngle) * br, 0, CENTER.z + Math.sin(busAngle) * br);
     bus.rotation.y = -busAngle;
     for (const m of mats.values()) {
       const u = m.userData;
       const mine = u.part === selected;
-      if (u.roof) { m.opacity += (((mine || selected === 'school') ? 0.1 : 1) - m.opacity) * 0.14; continue; }
+      if (u.roof) { m.opacity += ((mine ? 0.1 : 1) - m.opacity) * 0.14; continue; }
       if (u.skip) continue;
-      const fade = selected && !mine && !(selected === 'school' && ROOMS.some((r) => r.id === u.part)) ? 0.5 : 0;
+      const fade = selected && selected !== 'school' && !mine ? 0.5 : 0;
       m.color.lerp(colorTmp.copy(u.base).lerp(dim, fade), 0.14);
     }
     const pulse = 0.2 + 0.1 * Math.sin(elapsed * 3.2);
     if (selected && volumes[selected]) volumes[selected].material.opacity = pulse;
     renderer.render(scene, camera);
     const w = host.clientWidth, h = host.clientHeight;
+    if (!nameTag.hidden) { temp.copy(namePos).project(camera); nameTag.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`; }
     for (const t of Object.values(tags)) {
       temp.copy(t.pos).project(camera);
       t.el.style.transform = `translate(-50%, -100%) translate(${((temp.x + 1) / 2) * w}px, ${((1 - temp.y) / 2) * h}px)`;
