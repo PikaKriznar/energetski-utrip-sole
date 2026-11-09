@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Energetski utrip šole</title>
+  <meta name="description" content="Demo interaktivnega energetskega portala za šolsko avlo: sončna elektrarna, baterijski hranilnik in optimizacija porabe.">
+  <meta name="theme-color" content="#0d0d0d">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c98500'/><path d='M18 4 9 18h6l-1 10 9-14h-6z' fill='%230d0d0d'/></svg>">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Energetski utrip šole</h1>
+      <p class="sim-badge" title="Demo ne uporablja meritev konkretne šole.">Simulirani podatki · generična šola</p>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Prikazi portala">
+      <button role="tab" id="tab-now" aria-controls="view-now" data-view="now" aria-selected="true">Stanje zdaj</button>
+      <button role="tab" id="tab-explore" aria-controls="view-explore" data-view="explore" aria-selected="false">Kako deluje?</button>
+      <button role="tab" id="tab-better" aria-controls="view-better" data-view="better" aria-selected="false">Kaj lahko naredimo bolje?</button>
+    </nav>
+  </header>
+
+  <section class="kpis" aria-label="Ključni podatki" aria-live="off">
+    <div class="kpi"><span class="dot" style="background:var(--pv)"></span><span class="kpi-label">Sonce proizvaja</span><strong id="k-pv">–</strong></div>
+    <div class="kpi"><span class="dot" style="background:var(--load)"></span><span class="kpi-label">Šola porablja</span><strong id="k-load">–</strong></div>
+    <div class="kpi"><span class="dot" style="background:var(--bat)"></span><span class="kpi-label">Baterija je polna</span><strong id="k-soc">–</strong></div>
+    <div class="kpi"><span class="dot" style="background:var(--grid)"></span><span class="kpi-label" id="k-grid-label">Iz omrežja</span><strong id="k-grid">–</strong></div>
+  </section>
+
+  <main>
+    <section id="view-now" class="view" role="tabpanel" aria-labelledby="tab-now">
+      <div class="now-grid">
+        <div class="card flow-card"><div id="flow-now" class="flow"></div></div>
+        <div class="card headline-card">
+          <p class="eyebrow">Ta trenutek</p>
+          <p class="big-share"><strong id="share">–</strong><span>porabe šole pokriva lastna energija</span></p>
+          <p class="sentence" id="sentence"></p>
+          <div class="meters">
+            <div class="meter">
+              <div class="meter-head"><span>Samozadostnost danes</span><strong id="m-ss">–</strong></div>
+              <div class="track"><i id="b-ss"></i></div>
+              <p>Kolikšen del vse porabe smo pokrili sami.</p>
+            </div>
+            <div class="meter">
+              <div class="meter-head"><span>Samoporaba danes</span><strong id="m-sc">–</strong></div>
+              <div class="track"><i id="b-sc"></i></div>
+              <p>Kolikšen del sončne energije smo porabili v šoli.</p>
+            </div>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">
+            <h2>Od kod je prišla energija danes?</h2>
+            <div class="legend" id="legend-now"></div>
+          </div>
+          <div id="chart-now" class="chart"></div>
+          <p class="hint">Barvne ploskve kažejo porabo šole po virih. Prostor med rumeno črto in ploskvami je sončna energija, ki je šola ni porabila takoj.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-explore" class="view" role="tabpanel" aria-labelledby="tab-explore" hidden>
+      <div class="explore-grid">
+        <div class="card flow-card">
+          <div class="card-head"><h2>Dotaknite se dela sistema</h2></div>
+          <div id="flow-explore" class="flow"></div>
+        </div>
+        <div class="card explain-card">
+          <div class="chips" id="chips" role="group" aria-label="Izberi razlago"></div>
+          <div id="explain" aria-live="polite"></div>
+          <div class="presets">
+            <span>Poglej ob:</span>
+            <button data-time="30">7:30</button>
+            <button data-time="50">12:30</button>
+            <button data-time="64">16:00</button>
+            <button data-time="80">20:00</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-better" class="view" role="tabpanel" aria-labelledby="tab-better" hidden>
+      <div class="controls">
+        <div class="control"><span>Vreme</span><div class="seg" id="c-weather"></div></div>
+        <div class="control"><span>Baterija</span><div class="seg" id="c-cap"></div></div>
+        <div class="control"><span>Kuhinja</span><div class="seg" id="c-kitchen"></div></div>
+      </div>
+
+      <div class="card verdict">
+        <p id="verdict"></p>
+        <div class="table-wrap">
+          <table id="compare"></table>
+        </div>
+      </div>
+
+      <div class="legend legend-wide" id="legend-better"></div>
+      <div class="two">
+        <div class="card"><div class="card-head"><h2>Osnovno delovanje</h2><p class="sub">Običajni urnik, baterija po preprostem pravilu</p></div><div id="chart-base" class="chart"></div></div>
+        <div class="card"><div class="card-head"><h2>Optimizirano (MILP)</h2><p class="sub" id="opt-sub"></p></div><div id="chart-opt" class="chart"></div></div>
+      </div>
+
+      <div class="two two-wide">
+        <div class="card">
+          <div class="card-head"><h2>Kuhinja: kdaj naj naprave delujejo?</h2>
+            <div class="legend">
+              <span><i class="sw sw-window"></i>Dovoljeni čas</span>
+              <span><i class="sw sw-usual"></i>Običajno</span>
+              <span><i class="sw sw-opt"></i>Predlog</span>
+            </div>
+          </div>
+          <div id="gantt"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Priporočila za današnji dan</h2></div>
+          <div id="recs"></div>
+        </div>
+      </div>
+
+      <div class="two two-wide">
+        <div class="card">
+          <div class="card-head"><h2>Kako velika baterija se splača?</h2><p class="sub">Samozadostnost pri izbranem vremenu</p>
+            <div class="legend"><span><i class="sw" style="background:var(--muted)"></i>Osnovno</span><span><i class="sw" style="background:var(--load)"></i>Optimizirano s prilagojeno kuhinjo</span></div>
+          </div>
+          <div id="caps" class="chart"></div>
+        </div>
+        <div class="card about">
+          <div class="card-head"><h2>Kako je nastal izračun?</h2></div>
+          <ol class="pipeline">
+            <li><b>Vhodni podatki</b> PV, poraba, kuhinja, vreme, baterija</li>
+            <li><b>Energetski modeli</b> proizvodnja in delovanje baterije</li>
+            <li><b>MILP</b> najcenejši izvedljivi razpored</li>
+            <li><b>Podatkovni vmesnik</b> vnaprej izračunana datoteka</li>
+            <li><b>Portal</b> stanje, primerjave, priporočila</li>
+          </ol>
+          <p id="assumptions"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="player" id="player">
+    <button id="play" aria-label="Ustavi potek dneva">❚❚</button>
+    <output id="clock">10:00</output>
+    <input id="scrub" type="range" min="0" max="95" step="1" value="40" aria-label="Čas dneva">
+    <span class="player-note">Simuliran sončen spomladanski šolski dan · 100 kWp · 100 kWh</span>
+  </footer>
+  <div id="tip" role="status" hidden></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
